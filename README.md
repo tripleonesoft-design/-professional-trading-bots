@@ -4,7 +4,9 @@
 ![MQ5](https://img.shields.io/badge/Language-MQL5-green)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
-Advanced algorithmic trading bots designed for MetaTrader 5 using institutional-grade concepts and techniques. Built by experienced traders for smart traders who demand precision, reliability, and professional-grade risk management.
+> **Professional Trading Bots for Wise and Smart Traders**
+> 
+> Using large institution concepts and trading techniques
 
 ---
 
