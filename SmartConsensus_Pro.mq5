@@ -3,8 +3,8 @@
 //|                             Professional Trader v12.0           |
 //+------------------------------------------------------------------+
 #property copyright "Professional Trading System"
-#property version   "12.00"
-#property description "Production Ready - All Order Types with SL/TP"
+#property version   "12.10"
+#property description "Production Ready - Fixed Risk/Reward 1:3 - All Order Types"
 
 input group "=== Timeframes ==="
 input ENUM_TIMEFRAMES Timeframe_Trend  = PERIOD_H1;      // Higher Timeframe: 1 Hour (Trend)
@@ -19,9 +19,9 @@ input int     Pending_Order_Expiry_Seconds = 43200;    // Pending Order Expiry: 
 
 input group "=== Risk Management ==="
 input double  Risk_Percent       = 1.0;        // Risk Per Trade: 1% of account
-input double  Reward_Risk_Ratio = 2.0;        // Reward to Risk Ratio: 1:2 (2.0)
-input int     Maximum_Spread_Points = 3000;       // Maximum Spread: 3000 points
-input int     Slippage_Points    = 100;        // Slippage: 100 points
+input double  Reward_Risk_Ratio = 3.0;        // Reward to Risk Ratio: 1:3 (3.0 = 3x reward)
+input int     Maximum_Spread_Points = 300;        // Maximum Spread: 300 points
+input int     Slippage_Points    = 200;        // Slippage: 200 points
 input double  Maximum_Lot_Size  = 100.0;       // Maximum Lot Size
 
 input group "=== Trading Settings ==="
@@ -127,6 +127,26 @@ void OnDeinit(const int reason) {
    EventKillTimer();
 }
 
+void OnTick() {
+   static datetime Last_Settings_Check = 0;
+   datetime Current_Time = TimeCurrent();
+   
+   if(Current_Time - Last_Settings_Check >= 1) {
+      Last_Settings_Check = Current_Time;
+      
+      MqlDateTime Current_Time_Struct, Day_Start_Time_Struct;
+      TimeToStruct(Current_Time, Current_Time_Struct);
+      TimeToStruct(Day_Start_Time, Day_Start_Time_Struct);
+      
+      if(Current_Time_Struct.day != Day_Start_Time_Struct.day) {
+         Today_Trade_Count = 0;
+         Day_Start_Time = Current_Time;
+      }
+      
+      if(Enable_Trailing_Stop) Manage_Trailing_Stops();
+   }
+}
+
 //+------------------------------------------------------------------+
 void OnTimer() {
    MqlDateTime Current_Time_Struct, Day_Start_Time_Struct;
@@ -173,6 +193,10 @@ void OnTimer() {
    Print("    Entry: ", DoubleToString(Signal.Entry_Price, (int)Digits_Value));
    Print("    Stop Loss: ", DoubleToString(Signal.Stop_Loss, (int)Digits_Value));
    Print("    Take Profit: ", DoubleToString(Signal.Take_Profit, (int)Digits_Value));
+   double Risk_Distance = MathAbs(Signal.Entry_Price - Signal.Stop_Loss);
+   double Reward_Distance = MathAbs(Signal.Take_Profit - Signal.Entry_Price);
+   double Actual_Ratio = Reward_Distance / Risk_Distance;
+   Print("    Risk/Reward: 1:", DoubleToString(Actual_Ratio, 2), " (Target: 1:", Reward_Risk_Ratio, ")");
    Print("    ATR: ", DoubleToString(Signal.ATR_Value/Point_Value, 1), " points");
    
    double Lot_Size = Calculate_Lot_Size(Signal.Entry_Price, Signal.Stop_Loss);
@@ -251,22 +275,29 @@ Trade_Signal Analyze_Market() {
    double Support_Level = iLow(_Symbol, Timeframe_Trend, iLowest(_Symbol, Timeframe_Trend, MODE_LOW, 10, 1));
    double Resistance_Level = iHigh(_Symbol, Timeframe_Trend, iHighest(_Symbol, Timeframe_Trend, MODE_HIGH, 10, 1));
    
-   if(Uptrend) {
+if(Uptrend) {
       Result.Direction = 1;
       Result.Entry_Price = Support_Level;
-      Result.Stop_Loss = Support_Level - MathMax(Result.ATR_Value * 0.5, Minimum_Stop);
-      Result.Take_Profit = Result.Entry_Price + Result.ATR_Value * Reward_Risk_Ratio;
+      Result.ATR_Value = MathMax(Result.ATR_Value, Minimum_Stop);
+      double Risk_Distance = Result.ATR_Value * 0.5;
+      Result.Stop_Loss = Result.Entry_Price - Risk_Distance;
+      Result.Take_Profit = Result.Entry_Price + (Risk_Distance * Reward_Risk_Ratio);
    }
    else if(Downtrend) {
       Result.Direction = -1;
       Result.Entry_Price = Resistance_Level;
-      Result.Stop_Loss = Resistance_Level + MathMax(Result.ATR_Value * 0.5, Minimum_Stop);
-      Result.Take_Profit = Result.Entry_Price - Result.ATR_Value * Reward_Risk_Ratio;
+      Result.ATR_Value = MathMax(Result.ATR_Value, Minimum_Stop);
+      double Risk_Distance = Result.ATR_Value * 0.5;
+      Result.Stop_Loss = Result.Entry_Price + Risk_Distance;
+      Result.Take_Profit = Result.Entry_Price - (Risk_Distance * Reward_Risk_Ratio);
    }
    
-   double Risk_Distance = MathAbs(Result.Entry_Price - Result.Stop_Loss);
-   double Reward_Distance = MathAbs(Result.Take_Profit - Result.Entry_Price);
-   if(Reward_Distance / Risk_Distance < 1.5) Result.Direction = 0;
+   double Actual_Risk = MathAbs(Result.Entry_Price - Result.Stop_Loss);
+   double Actual_Reward = MathAbs(Result.Take_Profit - Result.Entry_Price);
+   
+   if(Actual_Reward < Actual_Risk * Reward_Risk_Ratio * 0.8) {
+      Result.Direction = 0;
+   }
    
    return Result;
 }
