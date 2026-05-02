@@ -5,6 +5,7 @@
 #property copyright "Professional Trading System"
 #property version   "12.10"
 #property description "Production Ready - Fixed Risk/Reward 1:3 - All Order Types"
+#property lot_size 100
 
 input group "=== Timeframes ==="
 input ENUM_TIMEFRAMES Timeframe_Trend  = PERIOD_H1;      // Higher Timeframe: 1 Hour (Trend)
@@ -171,14 +172,11 @@ void OnTimer() {
    if(Current_Bar == Last_Analyzed_Bar) return;
    Last_Analyzed_Bar = Current_Bar;
    
-   double Current_Spread = (SymbolInfoDouble(_Symbol, SYMBOL_ASK) - SymbolInfoDouble(_Symbol, SYMBOL_BID)) / Point_Value;
-   if(Current_Spread > Maximum_Spread_Points) {
-      Trading_Enabled = false;
-      EventSetTimer(300);
-      Print("Spread Too High - Paused for 5 minutes");
-      return;
-   }
-   Trading_Enabled = true;
+double Current_Spread = (SymbolInfoDouble(_Symbol, SYMBOL_ASK) - SymbolInfoDouble(_Symbol, SYMBOL_BID)) / Point_Value;
+    bool Spread_Too_High = (Current_Spread > Maximum_Spread_Points);
+    if(Spread_Too_High) {
+       Print("Spread Too High - Skipping order execution");
+    }
    
    Trade_Signal Signal = Analyze_Market();
    if(Signal.Direction == 0) return;
@@ -205,8 +203,8 @@ void OnTimer() {
    bool Order_Executed = false;
    string Execution_Type = "";
    
-   // Try Market Order First
-   if(Enable_Market_Orders) {
+// Try Market Order First
+    if(Enable_Market_Orders && !Spread_Too_High) {
       if(Execute_Market_Order(Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit, Lot_Size)) {
          Order_Executed = true;
          Execution_Type = "MARKET";
@@ -215,8 +213,8 @@ void OnTimer() {
       }
    }
    
-   // Try Limit Order
-   if(!Order_Executed && Enable_Limit_Orders) {
+// Try Limit Order
+    if(!Order_Executed && Enable_Limit_Orders && !Spread_Too_High) {
       ENUM_ORDER_TYPE Order_Type = (Signal.Direction == 1) ? ORDER_TYPE_BUY_LIMIT : ORDER_TYPE_SELL_LIMIT;
       if(Execute_Pending_Order(Order_Type, Signal.Entry_Price, Lot_Size, Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit)) {
          Order_Executed = true;
@@ -226,8 +224,8 @@ void OnTimer() {
       }
    }
    
-   // Try Stop Order
-   if(!Order_Executed && Enable_Stop_Orders) {
+// Try Stop Order
+    if(!Order_Executed && Enable_Stop_Orders && !Spread_Too_High) {
       ENUM_ORDER_TYPE Order_Type = (Signal.Direction == 1) ? ORDER_TYPE_BUY_STOP : ORDER_TYPE_SELL_STOP;
       double Stop_Price = (Signal.Direction == 1) ? Signal.Entry_Price + Signal.ATR_Value * 0.2 : Signal.Entry_Price - Signal.ATR_Value * 0.2;
       if(Execute_Pending_Order(Order_Type, Stop_Price, Lot_Size, Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit)) {
@@ -238,8 +236,8 @@ void OnTimer() {
       }
    }
    
-   // Try Stop-Limit Order
-   if(!Order_Executed && Enable_StopLimit_Orders) {
+// Try Stop-Limit Order
+    if(!Order_Executed && Enable_StopLimit_Orders && !Spread_Too_High) {
       ENUM_ORDER_TYPE Order_Type = (Signal.Direction == 1) ? ORDER_TYPE_BUY_STOP_LIMIT : ORDER_TYPE_SELL_STOP_LIMIT;
       double Stop_Price = (Signal.Direction == 1) ? Signal.Entry_Price + Signal.ATR_Value * 0.3 : Signal.Entry_Price - Signal.ATR_Value * 0.3;
       if(Execute_Pending_Order(Order_Type, Stop_Price, Lot_Size, Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit)) {
