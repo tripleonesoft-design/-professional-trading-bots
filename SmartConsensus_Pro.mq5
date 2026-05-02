@@ -22,7 +22,7 @@ input double  Risk_Percent       = 1.0;        // Risk Per Trade: 1% of account
 input double  Reward_Risk_Ratio = 3.0;        // Reward to Risk Ratio: 1:3 (3.0 = 3x reward)
 input int     Maximum_Spread_Points = 300;        // Maximum Spread: 300 points
 input int     Slippage_Points    = 200;        // Slippage: 200 points
-input double  Maximum_Lot_Size  = 100.0;       // Maximum Lot Size
+input double  Maximum_Lot_Size  = 100.0;       // Max Lot Size (from Settings)
 
 input group "=== Trading Settings ==="
 input int     Daily_Trade_Target     = 6;        // Daily Trade Target: 6 trades per day
@@ -57,6 +57,7 @@ datetime Last_Analyzed_Bar = 0;
 datetime Last_Trade_Time = 0;
 datetime Day_Start_Time = 0;
 int      Today_Trade_Count = 0;
+string   GlobalPrefix = "SmartConsensus_";
 const int Magic_Number = 20251201;
 bool     Trading_Enabled = true;
 
@@ -67,6 +68,33 @@ struct Trade_Signal {
    double Take_Profit;
    double ATR_Value;
 };
+
+void Initialize_Daily_Trades() {
+   string GV_Day = GlobalPrefix + _Symbol + "_Day";
+   string GV_Count = GlobalPrefix + _Symbol + "_TradeCount";
+   
+   MqlDateTime ct;
+   TimeToStruct(TimeCurrent(), ct);
+   int Current_Day = ct.day;
+   
+   int Saved_Day = (int)GlobalVariableGet(GV_Day);
+   int Saved_Count = (int)GlobalVariableGet(GV_Count);
+   
+   if(Saved_Day == Current_Day) {
+      Today_Trade_Count = Saved_Count;
+      Day_Start_Time = TimeCurrent();
+   } else {
+      Today_Trade_Count = 0;
+      Day_Start_Time = TimeCurrent();
+      GlobalVariableSet(GV_Day, Current_Day);
+      GlobalVariableSet(GV_Count, 0);
+   }
+}
+
+void Save_Daily_Trades() {
+   string GV_Count = GlobalPrefix + _Symbol + "_TradeCount";
+   GlobalVariableSet(GV_Count, Today_Trade_Count);
+}
 
 //+------------------------------------------------------------------+
 int OnInit() {
@@ -83,23 +111,20 @@ int OnInit() {
    Indicator_Handle_MA_Low_Fast = iMA(_Symbol, Timeframe_Entry, 10, 0, MODE_SMA, PRICE_CLOSE);
    Indicator_Handle_MA_Low_Slow = iMA(_Symbol, Timeframe_Entry, 20, 0, MODE_SMA, PRICE_CLOSE);
    
-   if(Any_Handle_Invalid()) {
-      Print("Initialization Failed - Invalid Indicator Handle");
-      return INIT_FAILED;
-   }
-   
-   Day_Start_Time = TimeCurrent();
-   Today_Trade_Count = 0;
-   
-   double Minimum_Lot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
-   double Maximum_Lot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX);
-   long Stop_Level = SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL);
+if(Any_Handle_Invalid()) {
+       Print("Initialization Failed - Invalid Indicator Handle");
+       return INIT_FAILED;
+    }
+    
+Initialize_Daily_Trades();
+    
+    long Stop_Level = SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL);
    
    Print("=======================================================");
    Print("   SmartConsensus Pro v12 - Production Ready         ");
    Print("=======================================================");
    Print("Symbol: ", _Symbol);
-   Print("Lot Range: ", Minimum_Lot, " to ", Maximum_Lot);
+   Print("Max Lot Size: ", Maximum_Lot_Size);
    Print("Timeframes: ", EnumToString(Timeframe_Trend), " (Trend) / ", EnumToString(Timeframe_Entry), " (Entry)");
    Print("Daily Target: ", Daily_Trade_Target, " trades");
    Print("Confirmations Required: ", Minimum_Confirmations);
@@ -138,12 +163,15 @@ void OnTick() {
       TimeToStruct(Current_Time, Current_Time_Struct);
       TimeToStruct(Day_Start_Time, Day_Start_Time_Struct);
       
-      if(Current_Time_Struct.day != Day_Start_Time_Struct.day) {
-         Today_Trade_Count = 0;
-         Day_Start_Time = Current_Time;
-      }
-      
-      if(Enable_Trailing_Stop) Manage_Trailing_Stops();
+if(Current_Time_Struct.day != Day_Start_Time_Struct.day) {
+          Today_Trade_Count = 0;
+          Day_Start_Time = Current_Time;
+          string GV_Day = GlobalPrefix + _Symbol + "_Day";
+          GlobalVariableSet(GV_Day, Current_Time_Struct.day);
+          Save_Daily_Trades();
+       }
+       
+       if(Enable_Trailing_Stop) Manage_Trailing_Stops();
    }
 }
 
@@ -154,12 +182,15 @@ void OnTimer() {
    TimeToStruct(Current_Time, Current_Time_Struct);
    TimeToStruct(Day_Start_Time, Day_Start_Time_Struct);
    
-   if(Current_Time_Struct.day != Day_Start_Time_Struct.day) {
-      Today_Trade_Count = 0;
-      Day_Start_Time = Current_Time;
-   }
-   
-   if(!Trading_Enabled) return;
+if(Current_Time_Struct.day != Day_Start_Time_Struct.day) {
+       Today_Trade_Count = 0;
+       Day_Start_Time = Current_Time;
+       string GV_Day = GlobalPrefix + _Symbol + "_Day";
+       GlobalVariableSet(GV_Day, Current_Time_Struct.day);
+       Save_Daily_Trades();
+    }
+    
+    if(!Trading_Enabled) return;
    
    if(Enable_Trailing_Stop) Manage_Trailing_Stops();
    
@@ -208,6 +239,7 @@ double Current_Spread = (SymbolInfoDouble(_Symbol, SYMBOL_ASK) - SymbolInfoDoubl
          Order_Executed = true;
          Execution_Type = "MARKET";
          Today_Trade_Count++;
+         Save_Daily_Trades();
          Last_Trade_Time = Current_Time;
       }
    }
@@ -219,6 +251,7 @@ double Current_Spread = (SymbolInfoDouble(_Symbol, SYMBOL_ASK) - SymbolInfoDoubl
          Order_Executed = true;
          Execution_Type = "LIMIT";
          Today_Trade_Count++;
+         Save_Daily_Trades();
          Last_Trade_Time = Current_Time;
       }
    }
@@ -231,6 +264,7 @@ double Current_Spread = (SymbolInfoDouble(_Symbol, SYMBOL_ASK) - SymbolInfoDoubl
          Order_Executed = true;
          Execution_Type = "STOP";
          Today_Trade_Count++;
+         Save_Daily_Trades();
          Last_Trade_Time = Current_Time;
       }
    }
@@ -243,6 +277,7 @@ double Current_Spread = (SymbolInfoDouble(_Symbol, SYMBOL_ASK) - SymbolInfoDoubl
          Order_Executed = true;
          Execution_Type = "STOP_LIMIT";
          Today_Trade_Count++;
+         Save_Daily_Trades();
          Last_Trade_Time = Current_Time;
       }
    }
