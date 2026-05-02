@@ -436,12 +436,21 @@ bool Is_Multitimeframe_Aligned(int Direction) {
 
 //+------------------------------------------------------------------+
 bool Execute_Market_Order(int Direction, double Stop_Loss, double Take_Profit, double Lot_Size) {
-   double Ask_Price = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-   double Bid_Price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-   double Entry_Price = (Direction == 1) ? Ask_Price : Bid_Price;
-   
-   Stop_Loss = Validate_Stop_Loss(Direction, Entry_Price, Stop_Loss);
-   Take_Profit = NormalizeDouble(Take_Profit, (int)Digits_Value);
+    double Ask_Price = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+    double Bid_Price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+    double Entry_Price = (Direction == 1) ? Ask_Price : Bid_Price;
+    
+    Stop_Loss = Validate_Stop_Loss(Direction, Entry_Price, Stop_Loss);
+    
+    double Risk_Distance = MathAbs(Entry_Price - Stop_Loss);
+    double Target_Reward = Risk_Distance * Reward_Risk_Ratio;
+    
+    if(Direction == 1) {
+        Take_Profit = Entry_Price + Target_Reward;
+    } else {
+        Take_Profit = Entry_Price - Target_Reward;
+    }
+    Take_Profit = NormalizeDouble(Take_Profit, (int)Digits_Value);
    
    MqlTradeRequest Request = {};
    MqlTradeResult Result = {};
