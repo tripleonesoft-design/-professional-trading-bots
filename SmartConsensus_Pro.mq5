@@ -5,7 +5,6 @@
 #property copyright "Professional Trading System"
 #property version   "12.10"
 #property description "Production Ready - Fixed Risk/Reward 1:3 - All Order Types"
-#property lot_size 100
 
 input group "=== Timeframes ==="
 input ENUM_TIMEFRAMES Timeframe_Trend  = PERIOD_H1;      // Higher Timeframe: 1 Hour (Trend)
