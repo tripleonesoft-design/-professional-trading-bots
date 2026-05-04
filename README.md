@@ -141,6 +141,74 @@ input int Slippage = 100;            // Slippage tolerance
 
 ---
 
+## Market-Optimized Bots (New!)
+
+Specialized versions of SmartConsensus Pro optimized for specific markets with calibrated settings:
+
+### 1. SmartConsensus_Forex.mq5 (Liquid Forex)
+**Optimized for EURUSD, GBPUSD, and other major pairs.**
+
+| Setting | Value | Purpose |
+|---------|-------|---------|
+| Max Spread | 35 pts (3.5 pips) | Blocks high-cost sessions |
+| ATR Filter | 50 pts | Filters dead Asian sessions |
+| SL Multiplier | 1.2× ATR | Tight stop for majors |
+| Max Lot | **1.0** | Conservative for pairs |
+| Trailing | Start 1.0×, Step 0.5× | Secures gains incrementally |
+| Risk | 2% | Standard risk |
+
+### 2. SmartConsensus_Gold.mq5 (XAUUSD)
+**Optimized for Gold trading on M15 timeframe.**
+
+| Setting | Value | Purpose |
+|---------|-------|---------|
+| Max Spread | 85 pts ($0.85) | Ceiling for day trading |
+| ATR Filter | 180 pts ($1.80) | Ensures healthy momentum |
+| SL Multiplier | 1.0× ATR | Tighter than default |
+| Max Lot | **0.1** | Low due to high nominal value |
+| Trailing | Start 1.2×, Step 0.6× | Locks profit at 20% of move |
+| Risk | 2% | Standard risk |
+
+### 3. SmartConsensus_BTC.mq5 (Bitcoin)
+**Optimized for BTCUSD with crypto-specific settings.**
+
+| Setting | Value | Purpose |
+|---------|-------|---------|
+| Max Spread | 3000 pts ($30) | Covers normal volatility |
+| ATR Filter | 1000 pts ($10) | Avoids flat ranges |
+| SL Multiplier | **0.5× ATR** | Safer for crypto (reduced from 1.5×) |
+| Max Lot | **0.1** | Very conservative (high value) |
+| Trailing | Start 1.5×, Step 0.75× | Waits for $15 profit before trail |
+| Risk | 2% | Standard risk |
+
+### 4. SmartConsensus_ETH.mq5 (Ethereum)
+**Optimized for ETHUSD with altcoin considerations.**
+
+| Setting | Value | Purpose |
+|---------|-------|---------|
+| Max Spread | 500 pts ($5) | Covers liquidity drops |
+| ATR Filter | 250 pts ($2.50) | Filters minor spikes |
+| SL Multiplier | 0.8× ATR | Balanced for alts |
+| Max Lot | **1.0** | Higher than BTC (lower value) |
+| Trailing | Start 1.2×, Step 0.6× | Locks at $3.00 profit |
+| Risk | 2% | Standard risk |
+
+### 5. SmartConsensus_Oil.mq5 (Crude Oil)
+**Optimized for Crude Oil (WTI/Brent) trading.**
+
+| Setting | Value | Purpose |
+|---------|-------|---------|
+| Max Spread | 12 pts ($0.12) | Highly liquid market |
+| ATR Filter | 45 pts ($0.45) | Ensures $0.45+ movement |
+| SL Multiplier | 1.2× ATR | Standard for oil |
+| Max Lot | **0.1** | Conservative |
+| Trailing | Start 1.0×, Step 0.5× | Quick profit lock |
+| Risk | 2% | Standard risk |
+
+> **Note:** The original `SmartConsensus_Pro.mq5` is preserved unchanged. Use the specialized versions for better performance per market.
+
+---
+
 ## Upcoming Bots
 
 We are developing more professional bots:
