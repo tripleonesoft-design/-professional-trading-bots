@@ -300,32 +300,59 @@ Trade_Signal Analyze_Market() {
    bool Uptrend = MA_Fast_Trend[0] > MA_Slow_Trend[0];
    bool Downtrend = MA_Fast_Trend[0] < MA_Slow_Trend[0];
    
-   double Current_Price = iClose(_Symbol, Timeframe_Trend, 0);
-   Result.ATR_Value = Get_ATR_Value(Timeframe_Trend, 0);
+double Current_Price = iClose(_Symbol, Timeframe_Trend, 0);
+   Result.ATR_Value = Get_ATR_Value(Timeframe_Entry, 0);
    double Minimum_Stop = Get_Minimum_Stop_Distance();
    
-   double Support_Level = iLow(_Symbol, Timeframe_Trend, iLowest(_Symbol, Timeframe_Trend, MODE_LOW, 10, 1));
-   double Resistance_Level = iHigh(_Symbol, Timeframe_Trend, iHighest(_Symbol, Timeframe_Trend, MODE_HIGH, 10, 1));
+   double Swing_Low_M15 = iLow(_Symbol, Timeframe_Entry, iLowest(_Symbol, Timeframe_Entry, MODE_LOW, 20, 1));
+   double Swing_High_M15 = iHigh(_Symbol, Timeframe_Entry, iHighest(_Symbol, Timeframe_Entry, MODE_HIGH, 20, 1));
    
-if(Uptrend) {
-      Result.Direction = 1;
-      Result.Entry_Price = Support_Level;
-      Result.ATR_Value = MathMax(Result.ATR_Value, Minimum_Stop);
-      double Risk_Distance = Result.ATR_Value * 0.5;
-      Result.Stop_Loss = Result.Entry_Price - Risk_Distance;
-      Result.Take_Profit = Result.Entry_Price + (Risk_Distance * Reward_Risk_Ratio);
-   }
-   else if(Downtrend) {
-      Result.Direction = -1;
-      Result.Entry_Price = Resistance_Level;
-      Result.ATR_Value = MathMax(Result.ATR_Value, Minimum_Stop);
-      double Risk_Distance = Result.ATR_Value * 0.5;
-      Result.Stop_Loss = Result.Entry_Price + Risk_Distance;
-      Result.Take_Profit = Result.Entry_Price - (Risk_Distance * Reward_Risk_Ratio);
-   }
+   double ATR_Based_SL_M15 = Result.ATR_Value * 1.5;
+   double ATR_Based_SL_M15_2x = Result.ATR_Value * 2.0;
    
-   double Actual_Risk = MathAbs(Result.Entry_Price - Result.Stop_Loss);
-   double Actual_Reward = MathAbs(Result.Take_Profit - Result.Entry_Price);
+   double Entry_Price = (Direction == 1) ? SymbolInfoDouble(_Symbol, SYMBOL_ASK) : SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   
+ if(Uptrend) {
+       Result.Direction = 1;
+       Result.Entry_Price = Entry_Price;
+       
+       double Structural_SL = Swing_Low_M15 - Minimum_Stop;
+       double Volatility_SL = Entry_Price - ATR_Based_SL_M15;
+       double Volatility_SL_2x = Entry_Price - ATR_Based_SL_M15_2x;
+       
+       double Proposed_SL = Volatility_SL;
+       if(Structural_SL > Volatility_SL && Structural_SL < Volatility_SL_2x) {
+          Proposed_SL = Structural_SL;
+       } else if(Structural_SL >= Volatility_SL_2x) {
+          Proposed_SL = Volatility_SL_2x;
+       }
+       
+       Result.Stop_Loss = MathMax(Proposed_SL, Entry_Price - Minimum_Stop * 2);
+    }
+    else if(Downtrend) {
+       Result.Direction = -1;
+       Result.Entry_Price = Entry_Price;
+       
+       double Structural_SL = Swing_High_M15 + Minimum_Stop;
+       double Volatility_SL = Entry_Price + ATR_Based_SL_M15;
+       double Volatility_SL_2x = Entry_Price + ATR_Based_SL_M15_2x;
+       
+       double Proposed_SL = Volatility_SL;
+       if(Structural_SL < Volatility_SL && Structural_SL > Volatility_SL_2x) {
+          Proposed_SL = Structural_SL;
+       } else if(Structural_SL <= Volatility_SL_2x) {
+          Proposed_SL = Volatility_SL_2x;
+       }
+       
+Result.Stop_Loss = MathMin(Proposed_SL, Entry_Price + Minimum_Stop * 2);
+     }
+    
+    double Actual_Risk = MathAbs(Result.Entry_Price - Result.Stop_Loss);
+    Result.Take_Profit = Result.Entry_Price + (Actual_Risk * Reward_Risk_Ratio);
+    if(Result.Direction == -1) {
+       Result.Take_Profit = Result.Entry_Price - (Actual_Risk * Reward_Risk_Ratio);
+    }
+    double Actual_Reward = MathAbs(Result.Take_Profit - Result.Entry_Price);
    
    if(Actual_Reward < Actual_Risk * Reward_Risk_Ratio * 0.8) {
       Result.Direction = 0;
