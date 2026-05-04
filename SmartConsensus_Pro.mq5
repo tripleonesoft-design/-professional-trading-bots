@@ -311,7 +311,7 @@ if(Uptrend) {
       Result.Direction = 1;
       Result.Entry_Price = Support_Level;
       Result.ATR_Value = MathMax(Result.ATR_Value, Minimum_Stop);
-      double Risk_Distance = Result.ATR_Value * 0.5;
+      double Risk_Distance = Result.ATR_Value * 1.0;
       Result.Stop_Loss = Result.Entry_Price - Risk_Distance;
       Result.Take_Profit = Result.Entry_Price + (Risk_Distance * Reward_Risk_Ratio);
    }
@@ -319,7 +319,7 @@ if(Uptrend) {
       Result.Direction = -1;
       Result.Entry_Price = Resistance_Level;
       Result.ATR_Value = MathMax(Result.ATR_Value, Minimum_Stop);
-      double Risk_Distance = Result.ATR_Value * 0.5;
+      double Risk_Distance = Result.ATR_Value * 1.0;
       Result.Stop_Loss = Result.Entry_Price + Risk_Distance;
       Result.Take_Profit = Result.Entry_Price - (Risk_Distance * Reward_Risk_Ratio);
    }
