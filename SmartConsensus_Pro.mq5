@@ -307,44 +307,37 @@ double Current_Price = iClose(_Symbol, Timeframe_Trend, 0);
    double Swing_Low_M15 = iLow(_Symbol, Timeframe_Entry, iLowest(_Symbol, Timeframe_Entry, MODE_LOW, 20, 1));
    double Swing_High_M15 = iHigh(_Symbol, Timeframe_Entry, iHighest(_Symbol, Timeframe_Entry, MODE_HIGH, 20, 1));
    
-   double ATR_Based_SL_M15 = Result.ATR_Value * 1.5;
-   double ATR_Based_SL_M15_2x = Result.ATR_Value * 2.0;
+   double ATR_Based_SL = Result.ATR_Value * 1.5;
    
    double Entry_Price = (Direction == 1) ? SymbolInfoDouble(_Symbol, SYMBOL_ASK) : SymbolInfoDouble(_Symbol, SYMBOL_BID);
    
- if(Uptrend) {
+  if(Uptrend) {
        Result.Direction = 1;
        Result.Entry_Price = Entry_Price;
        
        double Structural_SL = Swing_Low_M15 - Minimum_Stop;
-       double Volatility_SL = Entry_Price - ATR_Based_SL_M15;
-       double Volatility_SL_2x = Entry_Price - ATR_Based_SL_M15_2x;
+       double Volatility_SL = Entry_Price - ATR_Based_SL;
        
-       double Proposed_SL = Volatility_SL;
-       if(Structural_SL > Volatility_SL && Structural_SL < Volatility_SL_2x) {
-          Proposed_SL = Structural_SL;
-       } else if(Structural_SL >= Volatility_SL_2x) {
-          Proposed_SL = Volatility_SL_2x;
+       if(Structural_SL > Volatility_SL) {
+          Result.Stop_Loss = Structural_SL;
+       } else {
+          Result.Stop_Loss = Volatility_SL;
        }
-       
-       Result.Stop_Loss = MathMax(Proposed_SL, Entry_Price - Minimum_Stop * 2);
+       Result.Stop_Loss = MathMax(Result.Stop_Loss, Entry_Price - Minimum_Stop * 2);
     }
     else if(Downtrend) {
        Result.Direction = -1;
        Result.Entry_Price = Entry_Price;
        
        double Structural_SL = Swing_High_M15 + Minimum_Stop;
-       double Volatility_SL = Entry_Price + ATR_Based_SL_M15;
-       double Volatility_SL_2x = Entry_Price + ATR_Based_SL_M15_2x;
+       double Volatility_SL = Entry_Price + ATR_Based_SL;
        
-       double Proposed_SL = Volatility_SL;
-       if(Structural_SL < Volatility_SL && Structural_SL > Volatility_SL_2x) {
-          Proposed_SL = Structural_SL;
-       } else if(Structural_SL <= Volatility_SL_2x) {
-          Proposed_SL = Volatility_SL_2x;
+       if(Structural_SL < Volatility_SL) {
+          Result.Stop_Loss = Structural_SL;
+       } else {
+          Result.Stop_Loss = Volatility_SL;
        }
-       
-Result.Stop_Loss = MathMin(Proposed_SL, Entry_Price + Minimum_Stop * 2);
+       Result.Stop_Loss = MathMin(Result.Stop_Loss, Entry_Price + Minimum_Stop * 2);
      }
     
     double Actual_Risk = MathAbs(Result.Entry_Price - Result.Stop_Loss);
