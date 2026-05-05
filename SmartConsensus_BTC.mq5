@@ -47,6 +47,7 @@ input int MACD_Slow_Period = 26;
 input int MACD_Signal_Period = 9;
 input int ATR_Period     = 14;
 
+const double SL_MULTIPLIER = 0.8;
 
 //+------------------------------------------------------------------+
 double   Point_Value, Digits_Value;
@@ -102,9 +103,9 @@ void Save_Daily_Trades() {
 
 //+------------------------------------------------------------------+
 int OnInit() {
-   Point_Value  = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-   Digits_Value = (double)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
-   if(Point_Value == 0) Point_Value = 0.00001;
+Point_Value  = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+    Digits_Value = (double)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
+    if(Point_Value == 0) Point_Value = 0.01;
    
    Indicator_Handle_ATR_High  = iATR(_Symbol, Timeframe_Trend, ATR_Period);
    Indicator_Handle_ATR_Low   = iATR(_Symbol, Timeframe_Entry, ATR_Period);
@@ -231,7 +232,7 @@ double Current_Spread = (SymbolInfoDouble(_Symbol, SYMBOL_ASK) - SymbolInfoDoubl
    Print("    Risk/Reward: 1:", DoubleToString(Actual_Ratio, 2), " (Target: 1:", Reward_Risk_Ratio, ")");
    Print("    ATR: ", DoubleToString(Signal.ATR_Value/Point_Value, 1), " points");
    
-   double Lot_Size = Calculate_Lot_Size(Signal.Entry_Price, Signal.Stop_Loss);
+   double Lot_Size = Calculate_Lot_Size(Signal.Entry_Price, Signal.Stop_Loss, Signal.ATR_Value);
    if(Lot_Size < SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN)) return;
    
    bool Order_Executed = false;
@@ -365,11 +366,13 @@ int Calculate_Confirmation(int Direction) {
    return Score;
 }
 
-double Calculate_Lot_Size(double Entry_Price, double Stop_Loss) {
-   double Account_Balance = AccountInfoDouble(ACCOUNT_BALANCE);
-   double Risk_Amount = Account_Balance * Risk_Percent / 100.0;
-   double Stop_Distance = MathAbs(Entry_Price - Stop_Loss);
-   if(Stop_Distance < Point_Value * 10) Stop_Distance = Indicator_Handle_ATR_Low * 0.4;
+double Calculate_Lot_Size(double Entry_Price, double Stop_Loss, double ATR) {
+    double Account_Balance = AccountInfoDouble(ACCOUNT_BALANCE);
+    double Risk_Amount = Account_Balance * Risk_Percent / 100.0;
+    double Stop_Distance = MathAbs(Entry_Price - Stop_Loss);
+    
+    double Min_Stop_Distance = ATR * 0.8;
+    if(Stop_Distance < Min_Stop_Distance) Stop_Distance = Min_Stop_Distance;
    
    double Tick_Value = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
    double Lot_Step = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
@@ -490,7 +493,8 @@ bool Execute_Market_Order(int Direction, double Stop_Loss, double Take_Profit, d
     double Bid_Price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
     double Entry_Price = (Direction == 1) ? Ask_Price : Bid_Price;
     
-    Stop_Loss = Validate_Stop_Loss(Direction, Entry_Price, Stop_Loss);
+    double ATR = Get_ATR_Value(Timeframe_Entry, 0);
+    Stop_Loss = Validate_Stop_Loss(Direction, Entry_Price, Stop_Loss, ATR);
     
     double Risk_Distance = MathAbs(Entry_Price - Stop_Loss);
     double Target_Reward = Risk_Distance * Reward_Risk_Ratio;
@@ -596,14 +600,17 @@ bool Execute_Pending_Order(ENUM_ORDER_TYPE Order_Type, double Price, double Stop
    return false;
 }
 
-double Validate_Stop_Loss(int Direction, double Entry, double Stop_Loss) {
-   double Minimum_Stop = Get_Minimum_Stop_Distance();
-   if(Direction == 1) {
-      if(Stop_Loss >= Entry - Minimum_Stop * 0.5) Stop_Loss = Entry - Minimum_Stop;
-   } else {
-      if(Stop_Loss <= Entry + Minimum_Stop * 0.5) Stop_Loss = Entry + Minimum_Stop;
-   }
-   return NormalizeDouble(Stop_Loss, (int)Digits_Value);
+double Validate_Stop_Loss(int Direction, double Entry, double Stop_Loss, double ATR) {
+    double Broker_Min_Stop = Get_Minimum_Stop_Distance();
+    double ATR_Min_Stop = ATR * 0.8;
+    double Min_Acceptable = MathMax(Broker_Min_Stop, ATR_Min_Stop);
+    
+    if(Direction == 1) {
+       if(Stop_Loss >= Entry - Min_Acceptable * 0.8) Stop_Loss = Entry - Min_Acceptable;
+    } else {
+       if(Stop_Loss <= Entry + Min_Acceptable * 0.8) Stop_Loss = Entry + Min_Acceptable;
+    }
+    return NormalizeDouble(Stop_Loss, (int)Digits_Value);
 }
 
 double Adjust_Stop_Loss_For_Pending(ENUM_ORDER_TYPE Order_Type, double Price, double Current_Price, double Stop_Loss, int Direction) {
