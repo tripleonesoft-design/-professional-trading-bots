@@ -24,19 +24,19 @@ input int     Maximum_Spread_Points = 300;        // Maximum Spread: 300 points
 input int     Slippage_Points    = 200;        // Slippage: 200 points
 input double  Maximum_Lot_Size  = 100.0;       // Max Lot Size (from Settings)
 
-input group "=== Trading Settings ==="
+input group "=== Trading Settings (Exness Optimized) ==="
 input int     Daily_Trade_Target     = 6;        // Daily Trade Target: 6 trades per day
 input int     Minimum_Confirmations  = 3;       // Minimum Confirmations: 3 required
-input double  Minimum_ATR_Filter     = 10.0;      // Minimum ATR Filter: 10 points
+input double  Minimum_ATR_Filter     = 15.0;      // Minimum ATR Filter: 15 points
 input int     Cooldown_Seconds       = 0;         // Cooldown: 0 seconds (no cooldown)
 
 input group "=== Fill Policy ==="
 input ENUM_ORDER_TYPE_FILLING Fill_Policy = ORDER_FILLING_IOC;    // Fill Policy: IOC (Immediate or Cancel)
 
-input group "=== Trailing Stop ==="
+input group "=== Trailing Stop (Exness Optimized) ==="
 input bool    Enable_Trailing_Stop   = true;       // Enable Trailing Stop
-input double  Trailing_Start_ATR   = 1.5;      // Trailing Start: 1.5 ATR
-input double  Trailing_Step_ATR   = 1.0;       // Trailing Step: 1.0 ATR
+input double  Trailing_Start_ATR   = 1.2;      // Trailing Start: 1.2 ATR
+input double  Trailing_Step_ATR   = 0.6;       // Trailing Step: 0.6 ATR
 
 input group "=== Indicators ==="
 input int RSI_Period     = 14;

@@ -4,7 +4,7 @@
 //+------------------------------------------------------------------+
 #property copyright "Professional Trading System"
 #property version   "1.00"
-#property description "Gold Optimized - Max Spread 85, ATR 180, SL 1.0x"
+#property description "Gold Optimized - Exness - ATR 150, SL 1.2x"
 
 input group "=== Timeframes ==="
 input ENUM_TIMEFRAMES Timeframe_Trend  = PERIOD_H1;
@@ -25,19 +25,19 @@ input int     Slippage_Points      = 40;
 input double  Maximum_Lot_Size     = 0.05;
 input double  Min_Lot_Size         = 0.01;
 
-input group "=== Trading Settings ==="
+input group "=== Trading Settings (Exness Optimized) ==="
 input int     Daily_Trade_Target    = 6;
 input int     Minimum_Confirmations = 3;
-input double  ATR_Filter_Min       = 180.0;
+input double  ATR_Filter_Min       = 150.0;
 input int     Cooldown_Seconds       = 0;
 
 input group "=== Fill Policy ==="
 input ENUM_ORDER_TYPE_FILLING Fill_Policy = ORDER_FILLING_IOC;
 
-input group "=== Trailing Stop (Gold Optimized) ==="
+input group "=== Trailing Stop (Exness Optimized) ==="
 input bool    Enable_Trailing_Stop  = true;
-input double  Trailing_Start_ATR    = 1.2;
-input double  Trailing_Step_ATR      = 0.6;
+input double  Trailing_Start_ATR    = 1.0;
+input double  Trailing_Step_ATR      = 0.5;
 
 input group "=== Indicators ==="
 input int RSI_Period        = 14;
@@ -48,7 +48,7 @@ input int MACD_Slow_Period  = 26;
 input int MACD_Signal_Period = 9;
 input int ATR_Period        = 14;
 
-const double SL_MULTIPLIER = 1.0;
+const double SL_MULTIPLIER = 1.2;
 
 double   Point_Value, Digits_Value;
 int      Indicator_Handle_ATR_High, Indicator_Handle_ATR_Low;

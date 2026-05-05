@@ -25,19 +25,19 @@ input int     Slippage_Points      = 25;
 input double  Maximum_Lot_Size     = 0.1;
 input double  Min_Lot_Size         = 0.01;
 
-input group "=== Trading Settings ==="
+input group "=== Trading Settings (Exness Optimized) ==="
 input int     Daily_Trade_Target    = 6;
 input int     Minimum_Confirmations = 3;
-input double  ATR_Filter_Min       = 45.0;
+input double  ATR_Filter_Min       = 40.0;
 input int     Cooldown_Seconds       = 0;
 
 input group "=== Fill Policy ==="
 input ENUM_ORDER_TYPE_FILLING Fill_Policy = ORDER_FILLING_IOC;
 
-input group "=== Trailing Stop (Oil Optimized) ==="
+input group "=== Trailing Stop (Exness Optimized) ==="
 input bool    Enable_Trailing_Stop  = true;
-input double  Trailing_Start_ATR    = 1.0;
-input double  Trailing_Step_ATR      = 0.5;
+input double  Trailing_Start_ATR    = 1.1;
+input double  Trailing_Step_ATR      = 0.55;
 
 input group "=== Indicators ==="
 input int RSI_Period        = 14;
@@ -48,7 +48,7 @@ input int MACD_Slow_Period  = 26;
 input int MACD_Signal_Period = 9;
 input int ATR_Period        = 14;
 
-const double SL_MULTIPLIER = 1.2;
+const double SL_MULTIPLIER = 1.25;
 
 double   Point_Value, Digits_Value;
 int      Indicator_Handle_ATR_High, Indicator_Handle_ATR_Low;
