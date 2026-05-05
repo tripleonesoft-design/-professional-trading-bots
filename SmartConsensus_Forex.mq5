@@ -27,7 +27,7 @@ input double  Maximum_Lot_Size     = 1.0;
 input group "=== Trading Settings ==="
 input int     Daily_Trade_Target    = 6;
 input int     Minimum_Confirmations = 3;
-input double  Minimum_ATR_Filter    = 50.0;
+input double  ATR_Filter_Min       = 50.0;
 input int     Cooldown_Seconds       = 0;
 
 input group "=== Fill Policy ==="
@@ -123,7 +123,7 @@ int OnInit() {
    Print("=======================================================");
    Print("Symbol: ", _Symbol);
    Print("Max Spread: ", Maximum_Spread_Points, " pts");
-   Print("ATR Filter: ", Minimum_ATR_Filter, " pts");
+   Print("ATR Filter: ", ATR_Filter_Min, " pts");
    Print("SL Multiplier: ", SL_MULTIPLIER, "x ATR");
    Print("Max Lot Size: ", Maximum_Lot_Size);
    Print("Risk: ", Risk_Percent, "%");
@@ -210,7 +210,7 @@ void OnTimer() {
    int Confirmation_Score = Calculate_Confirmation(Signal.Direction);
    if(Confirmation_Score < Minimum_Confirmations) return;
    
-   if(Signal.ATR_Value < Minimum_ATR_Filter * Point_Value) return;
+   if(Signal.ATR_Value < ATR_Filter_Min * Point_Value) return;
    
    Print("=== Signal Detected: ", Signal.Direction==1?"BUY":"SELL");
    Print("    Confirmation Score: ", Confirmation_Score, "/", Minimum_Confirmations);
@@ -300,6 +300,7 @@ Trade_Signal Analyze_Market() {
    double Swing_High_M15 = iHigh(_Symbol, Timeframe_Entry, iHighest(_Symbol, Timeframe_Entry, MODE_HIGH, 20, 1));
    
    double ATR_Based_SL = Result.ATR_Value * SL_MULTIPLIER;
+   double Minimum_SL_Distance = Result.ATR_Value * 0.8;
    
    double Entry_Price = (Result.Direction == 1) ? SymbolInfoDouble(_Symbol, SYMBOL_ASK) : SymbolInfoDouble(_Symbol, SYMBOL_BID);
    
@@ -315,7 +316,8 @@ Trade_Signal Analyze_Market() {
       } else {
          Result.Stop_Loss = Volatility_SL;
       }
-      Result.Stop_Loss = MathMax(Result.Stop_Loss, Entry_Price - Minimum_Stop * 2);
+      double Minimum_Acceptable_SL = Entry_Price - Minimum_SL_Distance;
+      Result.Stop_Loss = MathMax(Result.Stop_Loss, Minimum_Acceptable_SL);
    }
    else if(Downtrend) {
       Result.Direction = -1;
@@ -329,7 +331,8 @@ Trade_Signal Analyze_Market() {
       } else {
          Result.Stop_Loss = Volatility_SL;
       }
-      Result.Stop_Loss = MathMin(Result.Stop_Loss, Entry_Price + Minimum_Stop * 2);
+      double Minimum_Acceptable_SL = Entry_Price + Minimum_SL_Distance;
+      Result.Stop_Loss = MathMin(Result.Stop_Loss, Minimum_Acceptable_SL);
    }
    
    double Actual_Risk = MathAbs(Result.Entry_Price - Result.Stop_Loss);
