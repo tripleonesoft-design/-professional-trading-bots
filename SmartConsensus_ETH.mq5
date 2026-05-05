@@ -535,7 +535,10 @@ bool Execute_Pending_Order(ENUM_ORDER_TYPE Order_Type, double Price, double Lot_
    double Current_Price = (Direction == 1) ? Ask_Price : Bid_Price;
    
    Stop_Loss = Adjust_Stop_Loss_For_Pending(Order_Type, Price, Current_Price, Stop_Loss, Direction);
-   Take_Profit = NormalizeDouble(Take_Profit, (int)Digits_Value);
+   
+   double Actual_Risk = MathAbs(Price - Stop_Loss);
+   double New_Take_Profit = (Direction == 1) ? Price + (Actual_Risk * Reward_Risk_Ratio) : Price - (Actual_Risk * Reward_Risk_Ratio);
+   Take_Profit = NormalizeDouble(New_Take_Profit, (int)Digits_Value);
    
    MqlTradeRequest Request = {};
    MqlTradeResult Result = {};
