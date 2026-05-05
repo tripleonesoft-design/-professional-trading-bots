@@ -609,11 +609,15 @@ double Validate_Stop_Loss(int Direction, double Entry, double Stop_Loss, double 
     double ATR_Min_Stop = ATR * 0.8;
     double Min_Acceptable = MathMax(Broker_Min_Stop, ATR_Min_Stop);
     
-    if(Direction == 1) {
+    Print("DEBUG Validate_SL: Dir=", Direction, " Entry=", Entry, " SL_in=", Stop_Loss, " ATR=", ATR, " Min=", Min_Acceptable);
+    
+    if(Direction == 1) {  // BUY - SL should be BELOW entry
        if(Stop_Loss >= Entry - Min_Acceptable * 0.8) Stop_Loss = Entry - Min_Acceptable;
-    } else {
+    } else {              // SELL - SL should be ABOVE entry
        if(Stop_Loss <= Entry + Min_Acceptable * 0.8) Stop_Loss = Entry + Min_Acceptable;
     }
+    
+    Print("DEBUG Validate_SL: SL_out=", Stop_Loss);
     return NormalizeDouble(Stop_Loss, (int)Digits_Value);
 }
 

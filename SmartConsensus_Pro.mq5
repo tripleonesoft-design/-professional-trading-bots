@@ -487,9 +487,10 @@ bool Is_Multitimeframe_Aligned(int Direction) {
 bool Execute_Market_Order(int Direction, double Stop_Loss, double Take_Profit, double Lot_Size) {
     double Ask_Price = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
     double Bid_Price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-    double Entry_Price = (Direction == 1) ? Ask_Price : Bid_Price;
-    
-    Stop_Loss = Validate_Stop_Loss(Direction, Entry_Price, Stop_Loss);
+double Entry_Price = (Direction == 1) ? Ask_Price : Bid_Price;
+     
+     double ATR = Get_ATR_Value(Timeframe_Entry, 0);
+     Stop_Loss = Validate_Stop_Loss(Direction, Entry_Price, Stop_Loss, ATR);
     
     double Risk_Distance = MathAbs(Entry_Price - Stop_Loss);
     double Target_Reward = Risk_Distance * Reward_Risk_Ratio;
@@ -599,13 +600,20 @@ double ATR = Get_ATR_Value(Timeframe_Entry, 0);
    return false;
 }
 
-double Validate_Stop_Loss(int Direction, double Entry, double Stop_Loss) {
-   double Minimum_Stop = Get_Minimum_Stop_Distance();
+double Validate_Stop_Loss(int Direction, double Entry, double Stop_Loss, double ATR) {
+   double Broker_Min_Stop = Get_Minimum_Stop_Distance();
+   double ATR_Min_Stop = ATR * 0.8;
+   double Min_Acceptable = MathMax(Broker_Min_Stop, ATR_Min_Stop);
+   
+   Print("DEBUG Validate_SL: Dir=", Direction, " Entry=", Entry, " SL_in=", Stop_Loss, " ATR=", ATR, " Min=", Min_Acceptable);
+   
    if(Direction == 1) {
-      if(Stop_Loss >= Entry - Minimum_Stop * 0.5) Stop_Loss = Entry - Minimum_Stop;
+      if(Stop_Loss >= Entry - Min_Acceptable * 0.8) Stop_Loss = Entry - Min_Acceptable;
    } else {
-      if(Stop_Loss <= Entry + Minimum_Stop * 0.5) Stop_Loss = Entry + Minimum_Stop;
+      if(Stop_Loss <= Entry + Min_Acceptable * 0.8) Stop_Loss = Entry + Min_Acceptable;
    }
+   
+   Print("DEBUG Validate_SL: SL_out=", Stop_Loss);
    return NormalizeDouble(Stop_Loss, (int)Digits_Value);
 }
 
