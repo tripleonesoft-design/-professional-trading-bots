@@ -492,7 +492,7 @@ bool Execute_Market_Order(int Direction, double Stop_Loss, double Take_Profit, d
    double Bid_Price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    double Entry_Price = (Direction == 1) ? Ask_Price : Bid_Price;
    
-   Stop_Loss = Validate_Stop_Loss(Direction, Entry_Price, Stop_Loss);
+   Stop_Loss = Validate_Stop_Loss(Direction, Entry_Price, Stop_Loss, Signal.ATR_Value);
    
    double Risk_Distance = MathAbs(Entry_Price - Stop_Loss);
    double Target_Reward = Risk_Distance * Reward_Risk_Ratio;
@@ -573,12 +573,15 @@ bool Execute_Pending_Order(ENUM_ORDER_TYPE Order_Type, double Price, double Lot_
    return false;
 }
 
-double Validate_Stop_Loss(int Direction, double Entry, double Stop_Loss) {
-   double Minimum_Stop = Get_Minimum_Stop_Distance();
+double Validate_Stop_Loss(int Direction, double Entry, double Stop_Loss, double ATR) {
+   double Broker_Min_Stop = Get_Minimum_Stop_Distance();
+   double ATR_Min_Stop = ATR * 0.8;
+   double Min_Acceptable = MathMax(Broker_Min_Stop, ATR_Min_Stop);
+   
    if(Direction == 1) {
-      if(Stop_Loss >= Entry - Minimum_Stop * 0.5) Stop_Loss = Entry - Minimum_Stop;
+      if(Stop_Loss >= Entry - Min_Acceptable * 0.8) Stop_Loss = Entry - Min_Acceptable;
    } else {
-      if(Stop_Loss <= Entry + Minimum_Stop * 0.5) Stop_Loss = Entry + Minimum_Stop;
+      if(Stop_Loss <= Entry + Min_Acceptable * 0.8) Stop_Loss = Entry + Min_Acceptable;
    }
    return NormalizeDouble(Stop_Loss, (int)Digits_Value);
 }
