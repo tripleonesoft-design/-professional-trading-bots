@@ -64,12 +64,15 @@ const int Magic_Number = 20251202;
 bool     Trading_Enabled = true;
 
 struct Trade_Signal {
-   int    Direction;
-   double Entry_Price;
+   int    Direction;           // 1 = Buy, -1 = Sell
+   double Entry_Price;         // For market orders
+   double Limit_Price;         // For limit orders (away from market)
+   double Stop_Price;          // For stop orders and stop-limit orders
    double Stop_Loss;
    double Take_Profit;
    double ATR_Value;
 };
+Trade_Signal Signal;
 
 void Initialize_Daily_Trades() {
    string GV_Day = GlobalPrefix + _Symbol + "_Day";
@@ -205,7 +208,7 @@ void OnTimer() {
       Print("Spread Too High - Skipping order execution");
    }
    
-   Trade_Signal Signal = Analyze_Market();
+   Signal = Analyze_Market();
    if(Signal.Direction == 0) return;
    
    int Confirmation_Score = Calculate_Confirmation(Signal.Direction);
@@ -227,91 +230,84 @@ void OnTimer() {
    
    double Lot_Size = Calculate_Lot_Size(Signal.Entry_Price, Signal.Stop_Loss, Signal.ATR_Value);
    if(Lot_Size < SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN)) return;
-   
-   bool Order_Executed = false;
-   string Execution_Type = "";
-   
+
+   // Execute Market Order (Independent)
    if(Enable_Market_Orders && !Spread_Too_High) {
       if(Execute_Market_Order(Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit, Lot_Size)) {
-         Order_Executed = true;
-         Execution_Type = "MARKET";
+         Print("=== Market order executed independently");
          Today_Trade_Count++;
          Save_Daily_Trades();
          Last_Trade_Time = Current_Time;
       }
    }
-   
-   if(!Order_Executed && Enable_Limit_Orders && !Spread_Too_High) {
+
+   // Execute Limit Order (Independent - uses Limit_Price)
+   if(Enable_Limit_Orders && !Spread_Too_High) {
       ENUM_ORDER_TYPE Order_Type = (Signal.Direction == 1) ? ORDER_TYPE_BUY_LIMIT : ORDER_TYPE_SELL_LIMIT;
-      if(Execute_Pending_Order(Order_Type, Signal.Entry_Price, Lot_Size, Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit)) {
-         Order_Executed = true;
-         Execution_Type = "LIMIT";
+      if(Execute_Pending_Order(Order_Type, Signal.Limit_Price, 0, Lot_Size, Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit)) {
+         Print("=== Limit order placed independently");
          Today_Trade_Count++;
          Save_Daily_Trades();
          Last_Trade_Time = Current_Time;
       }
    }
-   
-   if(!Order_Executed && Enable_Stop_Orders && !Spread_Too_High) {
+
+   // Execute Stop Order (Independent - uses Stop_Price)
+   if(Enable_Stop_Orders && !Spread_Too_High) {
       ENUM_ORDER_TYPE Order_Type = (Signal.Direction == 1) ? ORDER_TYPE_BUY_STOP : ORDER_TYPE_SELL_STOP;
-      double Stop_Price = (Signal.Direction == 1) ? Signal.Entry_Price + Signal.ATR_Value * 0.2 : Signal.Entry_Price - Signal.ATR_Value * 0.2;
-      if(Execute_Pending_Order(Order_Type, Stop_Price, Lot_Size, Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit)) {
-         Order_Executed = true;
-         Execution_Type = "STOP";
+      if(Execute_Pending_Order(Order_Type, Signal.Stop_Price, 0, Lot_Size, Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit)) {
+         Print("=== Stop order placed independently");
          Today_Trade_Count++;
          Save_Daily_Trades();
          Last_Trade_Time = Current_Time;
       }
    }
-   
-   if(!Order_Executed && Enable_StopLimit_Orders && !Spread_Too_High) {
+
+   // Execute Stop-Limit Order (Independent - uses Stop_Price as stop, Limit_Price as limit)
+   if(Enable_StopLimit_Orders && !Spread_Too_High) {
       ENUM_ORDER_TYPE Order_Type = (Signal.Direction == 1) ? ORDER_TYPE_BUY_STOP_LIMIT : ORDER_TYPE_SELL_STOP_LIMIT;
-      double Stop_Price = (Signal.Direction == 1) ? Signal.Entry_Price + Signal.ATR_Value * 0.3 : Signal.Entry_Price - Signal.ATR_Value * 0.3;
-      if(Execute_Pending_Order(Order_Type, Stop_Price, Lot_Size, Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit)) {
-         Order_Executed = true;
-         Execution_Type = "STOP_LIMIT";
+      if(Execute_Pending_Order(Order_Type, Signal.Limit_Price, Signal.Stop_Price, Lot_Size, Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit)) {
+         Print("=== Stop-Limit order placed independently");
          Today_Trade_Count++;
          Save_Daily_Trades();
          Last_Trade_Time = Current_Time;
       }
    }
-   
-   if(Order_Executed) {
-      Print("=== Order Executed: ", Execution_Type);
-      Print("    Today's Trades: ", Today_Trade_Count, "/", Daily_Trade_Target);
-   }
+
+   Print("=== Signal processing complete. Today's Trades: ", Today_Trade_Count, "/", Daily_Trade_Target);
 }
 
 Trade_Signal Analyze_Market() {
    Trade_Signal Result;
    ZeroMemory(Result);
-   
+
    double MA_Fast_Trend[], MA_Slow_Trend[];
    if(CopyBuffer(Indicator_Handle_MA_High_Fast, 0, 0, 1, MA_Fast_Trend) <= 0) return Result;
    if(CopyBuffer(Indicator_Handle_MA_High_Slow, 0, 0, 1, MA_Slow_Trend) <= 0) return Result;
-   
+
    bool Uptrend = MA_Fast_Trend[0] > MA_Slow_Trend[0];
    bool Downtrend = MA_Fast_Trend[0] < MA_Slow_Trend[0];
-   
-   double Current_Price = iClose(_Symbol, Timeframe_Trend, 0);
+
    Result.ATR_Value = Get_ATR_Value(Timeframe_Entry, 0);
    double Minimum_Stop = Get_Minimum_Stop_Distance();
-   
+
    double Swing_Low_M15 = iLow(_Symbol, Timeframe_Entry, iLowest(_Symbol, Timeframe_Entry, MODE_LOW, 20, 1));
    double Swing_High_M15 = iHigh(_Symbol, Timeframe_Entry, iHighest(_Symbol, Timeframe_Entry, MODE_HIGH, 20, 1));
-   
+
    double ATR_Based_SL = Result.ATR_Value * SL_MULTIPLIER;
    double Minimum_SL_Distance = Result.ATR_Value * 0.8;
-   
-   double Entry_Price = (Result.Direction == 1) ? SymbolInfoDouble(_Symbol, SYMBOL_ASK) : SymbolInfoDouble(_Symbol, SYMBOL_BID);
-   
+
+   double Entry_Price = (Uptrend) ? SymbolInfoDouble(_Symbol, SYMBOL_ASK) : SymbolInfoDouble(_Symbol, SYMBOL_BID);
+
    if(Uptrend) {
       Result.Direction = 1;
       Result.Entry_Price = Entry_Price;
-      
+      Result.Limit_Price = Swing_Low_M15 + Minimum_Stop;
+      Result.Stop_Price = Entry_Price + Result.ATR_Value * 0.3;
+
       double Structural_SL = Swing_Low_M15 - Minimum_Stop;
       double Volatility_SL = Entry_Price - ATR_Based_SL;
-      
+
       if(Structural_SL > Volatility_SL) {
          Result.Stop_Loss = Structural_SL;
       } else {
@@ -323,10 +319,12 @@ Trade_Signal Analyze_Market() {
    else if(Downtrend) {
       Result.Direction = -1;
       Result.Entry_Price = Entry_Price;
-      
+      Result.Limit_Price = Swing_High_M15 - Minimum_Stop;
+      Result.Stop_Price = Entry_Price - Result.ATR_Value * 0.3;
+
       double Structural_SL = Swing_High_M15 + Minimum_Stop;
       double Volatility_SL = Entry_Price + ATR_Based_SL;
-      
+
       if(Structural_SL < Volatility_SL) {
          Result.Stop_Loss = Structural_SL;
       } else {
@@ -335,18 +333,18 @@ Trade_Signal Analyze_Market() {
       double Minimum_Acceptable_SL = Entry_Price + Minimum_SL_Distance;
       Result.Stop_Loss = MathMin(Result.Stop_Loss, Minimum_Acceptable_SL);
    }
-   
+
    double Actual_Risk = MathAbs(Result.Entry_Price - Result.Stop_Loss);
    Result.Take_Profit = Result.Entry_Price + (Actual_Risk * Reward_Risk_Ratio);
    if(Result.Direction == -1) {
       Result.Take_Profit = Result.Entry_Price - (Actual_Risk * Reward_Risk_Ratio);
    }
    double Actual_Reward = MathAbs(Result.Take_Profit - Result.Entry_Price);
-   
+
    if(Actual_Reward < Actual_Risk * Reward_Risk_Ratio * 0.8) {
       Result.Direction = 0;
    }
-   
+
    return Result;
 }
 
@@ -492,7 +490,7 @@ bool Execute_Market_Order(int Direction, double Stop_Loss, double Take_Profit, d
    double Bid_Price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    double Entry_Price = (Direction == 1) ? Ask_Price : Bid_Price;
    
-   Stop_Loss = Validate_Stop_Loss(Direction, Entry_Price, Stop_Loss, Signal.ATR_Value);
+      Stop_Loss = Validate_Stop_Loss(Direction, Entry_Price, Stop_Loss, Signal.ATR_Value);
    
    double Risk_Distance = MathAbs(Entry_Price - Stop_Loss);
    double Target_Reward = Risk_Distance * Reward_Risk_Ratio;
@@ -535,25 +533,50 @@ bool Execute_Market_Order(int Direction, double Stop_Loss, double Take_Profit, d
    return false;
 }
 
-bool Execute_Pending_Order(ENUM_ORDER_TYPE Order_Type, double Price, double Lot_Size, int Direction, double Stop_Loss, double Take_Profit) {
+bool Execute_Pending_Order(ENUM_ORDER_TYPE Order_Type, double Price, double StopPrice, double Lot_Size, int Direction, double Stop_Loss, double Take_Profit) {
    Price = NormalizeDouble(Price, (int)Digits_Value);
+   StopPrice = NormalizeDouble(StopPrice, (int)Digits_Value);
    double Minimum_Stop = Get_Minimum_Stop_Distance();
    double Ask_Price = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    double Bid_Price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    double Current_Price = (Direction == 1) ? Ask_Price : Bid_Price;
-   
-   Stop_Loss = Adjust_Stop_Loss_For_Pending(Order_Type, Price, Current_Price, Stop_Loss, Direction);
-   
-   double Actual_Risk = MathAbs(Price - Stop_Loss);
-   double New_Take_Profit = (Direction == 1) ? Price + (Actual_Risk * Reward_Risk_Ratio) : Price - (Actual_Risk * Reward_Risk_Ratio);
+
+   // For stop-limit orders, use StopPrice for stop and Price for limit
+   // For limit/stop orders, use Price as the order price
+   double OrderPrice = Price;
+   double OrderStopPrice = StopPrice;
+
+   // Determine the actual price to use based on order type
+   if(Order_Type == ORDER_TYPE_BUY_LIMIT || Order_Type == ORDER_TYPE_SELL_LIMIT) {
+      OrderPrice = Price; // Limit price
+      OrderStopPrice = 0;
+   }
+   else if(Order_Type == ORDER_TYPE_BUY_STOP || Order_Type == ORDER_TYPE_SELL_STOP) {
+      OrderPrice = Price; // Stop price
+      OrderStopPrice = 0;
+   }
+   else if(Order_Type == ORDER_TYPE_BUY_STOP_LIMIT || Order_Type == ORDER_TYPE_SELL_STOP_LIMIT) {
+      // For stop-limit: OrderPrice = limit price, OrderStopPrice = stop price
+      if(StopPrice > 0) {
+         OrderStopPrice = StopPrice;
+      } else {
+         OrderStopPrice = Price; // Fallback
+      }
+   }
+
+   Stop_Loss = Adjust_Stop_Loss_For_Pending(Order_Type, OrderPrice, Current_Price, Stop_Loss, Direction);
+
+   double Actual_Risk = MathAbs(OrderPrice - Stop_Loss);
+   double New_Take_Profit = (Direction == 1) ? OrderPrice + (Actual_Risk * Reward_Risk_Ratio) : OrderPrice - (Actual_Risk * Reward_Risk_Ratio);
    Take_Profit = NormalizeDouble(New_Take_Profit, (int)Digits_Value);
-   
+
    MqlTradeRequest Request = {};
    MqlTradeResult Result = {};
    Request.action = TRADE_ACTION_PENDING;
    Request.symbol = _Symbol;
    Request.volume = Lot_Size;
-   Request.price = Price;
+   Request.price = OrderPrice;
+   if(OrderStopPrice > 0) Request.stoplimit = OrderStopPrice;
    Request.sl = Stop_Loss;
    Request.tp = Take_Profit;
    Request.deviation = Slippage_Points;
@@ -561,13 +584,16 @@ bool Execute_Pending_Order(ENUM_ORDER_TYPE Order_Type, double Price, double Lot_
    Request.magic = Magic_Number;
    Request.type = Order_Type;
    Request.expiration = TimeCurrent() + Pending_Order_Expiry_Seconds;
-   
+
+   string PriceMsg = DoubleToString(OrderPrice, (int)Digits_Value);
+   if(OrderStopPrice > 0) PriceMsg += " (Stop: " + DoubleToString(OrderStopPrice, (int)Digits_Value) + ")";
+
    if(OrderSend(Request, Result)) {
       if(Result.retcode == TRADE_RETCODE_PLACED || Result.retcode == TRADE_RETCODE_DONE) {
-         Print("PENDING ORDER ", Get_Order_Type_Name(Order_Type), " PLACED AT ", DoubleToString(Price, (int)Digits_Value));
+         Print("PENDING ORDER ", Get_Order_Type_Name(Order_Type), " PLACED AT ", PriceMsg);
          return true;
       }
-      Print("Pending Order Error: ", Result.retcode);
+      Print("Pending Order Error: ", Result.retcode, " for ", Get_Order_Type_Name(Order_Type));
       return false;
    }
    return false;
