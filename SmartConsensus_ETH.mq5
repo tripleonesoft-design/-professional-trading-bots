@@ -17,11 +17,11 @@ input bool    Enable_Stop_Orders       = true;
 input bool    Enable_StopLimit_Orders = true;
 input int     Pending_Order_Expiry_Seconds = 43200;
 
-input group "=== Risk Management (Exness Optimized) ==="
+input group "=== Risk Management (Exness Optimized - Research Based) ==="
 input double  Risk_Percent         = 2.0;
 input double  Reward_Risk_Ratio    = 3.0;
-input int     Maximum_Spread_Points = 500;
-input int     Slippage_Points      = 150;
+input int     Maximum_Spread_Points = 800;
+input int     Slippage_Points      = 200;
 input double  Maximum_Lot_Size     = 0.1;
 input double  Min_Lot_Size         = 0.01;
 
