@@ -564,7 +564,8 @@ bool Execute_Pending_Order(ENUM_ORDER_TYPE Order_Type, double Price, double Stop
       }
    }
 
-   Stop_Loss = Adjust_Stop_Loss_For_Pending(Order_Type, OrderPrice, Current_Price, Stop_Loss, Direction);
+   double ATR = Get_ATR_Value(Timeframe_Entry, 0);
+    Stop_Loss = Adjust_Stop_Loss_For_Pending(Order_Type, OrderPrice, Current_Price, Stop_Loss, Direction, ATR);
 
    double Actual_Risk = MathAbs(OrderPrice - Stop_Loss);
    double New_Take_Profit = (Direction == 1) ? OrderPrice + (Actual_Risk * Reward_Risk_Ratio) : OrderPrice - (Actual_Risk * Reward_Risk_Ratio);
@@ -613,17 +614,19 @@ double Validate_Stop_Loss(int Direction, double Entry, double Stop_Loss, double 
    return NormalizeDouble(Stop_Loss, (int)Digits_Value);
 }
 
-double Adjust_Stop_Loss_For_Pending(ENUM_ORDER_TYPE Order_Type, double Price, double Current_Price, double Stop_Loss, int Direction) {
-   double Minimum_Stop = Get_Minimum_Stop_Distance();
-   bool Is_Buy_Order = (Order_Type == ORDER_TYPE_BUY_LIMIT || Order_Type == ORDER_TYPE_BUY_STOP || Order_Type == ORDER_TYPE_BUY_STOP_LIMIT);
-   double Adjusted_SL = Stop_Loss;
-   
-   if(Is_Buy_Order) {
-      if(Stop_Loss >= Price || Stop_Loss >= Current_Price) Adjusted_SL = MathMin(Price, Current_Price) - Minimum_Stop;
-   } else {
-      if(Stop_Loss <= Price || Stop_Loss <= Current_Price) Adjusted_SL = MathMax(Price, Current_Price) + Minimum_Stop;
-   }
-   return NormalizeDouble(MathMax(Adjusted_SL, Point_Value), (int)Digits_Value);
+double Adjust_Stop_Loss_For_Pending(ENUM_ORDER_TYPE Order_Type, double Price, double Current_Price, double Stop_Loss, int Direction, double ATR) {
+    double Broker_Min_Stop = Get_Minimum_Stop_Distance();
+    double ATR_Min_Stop = ATR * 0.8;
+    double Minimum_Stop = MathMax(Broker_Min_Stop, ATR_Min_Stop);
+    bool Is_Buy_Order = (Order_Type == ORDER_TYPE_BUY_LIMIT || Order_Type == ORDER_TYPE_BUY_STOP || Order_Type == ORDER_TYPE_BUY_STOP_LIMIT);
+    double Adjusted_SL = Stop_Loss;
+    
+    if(Is_Buy_Order) {
+       if(Stop_Loss >= Price || Stop_Loss >= Current_Price) Adjusted_SL = MathMin(Price, Current_Price) - Minimum_Stop;
+    } else {
+       if(Stop_Loss <= Price || Stop_Loss <= Current_Price) Adjusted_SL = MathMax(Price, Current_Price) + Minimum_Stop;
+    }
+    return NormalizeDouble(MathMax(Adjusted_SL, Point_Value), (int)Digits_Value);
 }
 
 string Get_Order_Type_Name(ENUM_ORDER_TYPE Order_Type) {
