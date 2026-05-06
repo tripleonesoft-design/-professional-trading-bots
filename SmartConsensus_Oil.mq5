@@ -20,7 +20,7 @@ input int     Pending_Order_Expiry_Seconds = 43200;
 input group "=== Risk Management (Exness Optimized - Research Based) ==="
 input double  Risk_Percent         = 2.0;
 input double  Reward_Risk_Ratio    = 3.0;
-input int     Maximum_Spread_Points = 40;
+input int     Maximum_Spread_Points = 40;       // Maximum Spread (points)
 input int     Slippage_Points      = 25;
 input double  Maximum_Lot_Size     = 0.1;
 input double  Min_Lot_Size         = 0.01;
@@ -605,11 +605,15 @@ double Validate_Stop_Loss(int Direction, double Entry, double Stop_Loss, double 
    double ATR_Min_Stop = ATR * 0.8;
    double Min_Acceptable = MathMax(Broker_Min_Stop, ATR_Min_Stop);
    
+   Print("DEBUG Validate_SL: Dir=", Direction, " Entry=", Entry, " SL_in=", Stop_Loss, " ATR=", ATR, " Min=", Min_Acceptable);
+   
    if(Direction == 1) {
       if(Stop_Loss >= Entry - Min_Acceptable * 0.8) Stop_Loss = Entry - Min_Acceptable;
    } else {
       if(Stop_Loss <= Entry + Min_Acceptable * 0.8) Stop_Loss = Entry + Min_Acceptable;
    }
+   
+   Print("DEBUG Validate_SL: SL_out=", Stop_Loss);
    return NormalizeDouble(Stop_Loss, (int)Digits_Value);
 }
 
