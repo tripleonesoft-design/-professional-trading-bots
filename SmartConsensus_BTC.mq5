@@ -378,12 +378,12 @@ double Calculate_Lot_Size(double Entry_Price, double Stop_Loss, double ATR) {
    double Min_Lot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
    if(Min_Lot_Size > Min_Lot) Min_Lot = Min_Lot_Size;
    
-   double Tick_Value = SymbolInfoDouble(_symbol, SYMBOL_TRADE_TICK_VALUE);
-   double Lot_Step = SymbolInfoDouble(_symbol, SYMBOL_VOLUME_STEP);
+   double Tick_Value = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
+   double Lot_Step = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
    double Lot = Risk_Amount / (Stop_Distance * Tick_Value / Point_Value);
    Lot = MathFloor(Lot / Lot_Step) * Lot_Step;
    Lot = NormalizeDouble(MathMax(Lot, Min_Lot), 2);
-   Lot = MathMin(Lot, SymbolInfoDouble(_symbol, SYMBOL_VOLUME_MAX));
+   Lot = MathMin(Lot, SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX));
    Lot = MathMin(Lot, Maximum_Lot_Size);
    if(Lot < Min_Lot) return 0;
    return Lot;
