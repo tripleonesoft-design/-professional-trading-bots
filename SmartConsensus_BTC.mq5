@@ -20,7 +20,7 @@ input int     Pending_Order_Expiry_Seconds = 43200;    // Pending Order Expiry: 
 input group "=== Risk Management ==="
 input double  Risk_Percent       = 1.0;        // Risk Per Trade: 1% of account
 input double  Reward_Risk_Ratio = 3.0;        // Reward to Risk Ratio: 1:3 (3.0 = 3x reward)
-input int     Maximum_Spread_Points = 1200;        // Maximum Spread: 300 points
+input int     Maximum_Spread_Points = 1200;        // Maximum Spread (points)
 input int     Slippage_Points    = 200;        // Slippage: 200 points
 input double  Maximum_Lot_Size  = 0.01;       // Max Lot Size (from Settings)
 input double  Min_Lot_Size      = 0.01;       // Min Lot Size (from Settings)

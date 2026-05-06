@@ -20,7 +20,7 @@ input int     Pending_Order_Expiry_Seconds = 43200;
 input group "=== Risk Management (Exness Optimized - Research Based) ==="
 input double  Risk_Percent         = 2.0;
 input double  Reward_Risk_Ratio    = 3.0;
-input int     Maximum_Spread_Points = 80;
+input int     Maximum_Spread_Points = 80;       // Maximum Spread (points)
 input int     Slippage_Points      = 40;
 input double  Maximum_Lot_Size     = 0.05;
 input double  Min_Lot_Size         = 0.01;
