@@ -23,6 +23,7 @@ input double  Reward_Risk_Ratio = 3.0;        // Reward to Risk Ratio: 1:3 (3.0 
 input int     Maximum_Spread_Points = 1200;        // Maximum Spread: 300 points
 input int     Slippage_Points    = 200;        // Slippage: 200 points
 input double  Maximum_Lot_Size  = 0.01;       // Max Lot Size (from Settings)
+input double  Min_Lot_Size      = 0.01;       // Min Lot Size (from Settings)
 
 input group "=== Trading Settings (Exness Optimized) ==="
 input int     Daily_Trade_Target     = 6;        // Daily Trade Target: 6 trades per day
@@ -374,13 +375,17 @@ double Calculate_Lot_Size(double Entry_Price, double Stop_Loss, double ATR) {
     double Min_Stop_Distance = ATR * 0.8;
     if(Stop_Distance < Min_Stop_Distance) Stop_Distance = Min_Stop_Distance;
    
-   double Tick_Value = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
-   double Lot_Step = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
+   double Min_Lot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
+   if(Min_Lot_Size > Min_Lot) Min_Lot = Min_Lot_Size;
+   
+   double Tick_Value = SymbolInfoDouble(_symbol, SYMBOL_TRADE_TICK_VALUE);
+   double Lot_Step = SymbolInfoDouble(_symbol, SYMBOL_VOLUME_STEP);
    double Lot = Risk_Amount / (Stop_Distance * Tick_Value / Point_Value);
    Lot = MathFloor(Lot / Lot_Step) * Lot_Step;
-   Lot = NormalizeDouble(MathMax(Lot, SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN)), 2);
-   Lot = MathMin(Lot, SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX));
+   Lot = NormalizeDouble(MathMax(Lot, Min_Lot), 2);
+   Lot = MathMin(Lot, SymbolInfoDouble(_symbol, SYMBOL_VOLUME_MAX));
    Lot = MathMin(Lot, Maximum_Lot_Size);
+   if(Lot < Min_Lot) return 0;
    return Lot;
 }
 
