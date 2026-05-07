@@ -116,7 +116,7 @@ Our trading bots utilize three primary technical indicators for signal confirmat
 
 ### 1. RSI (Relative Strength Index)
 
-![RSI Indicator](images/rsi-indicator.svg)
+![RSI Indicator](images/rsi-indicator.png)
 
 | Parameter | Value | Purpose |
 |-----------|-------|---------|
@@ -131,7 +131,7 @@ Our trading bots utilize three primary technical indicators for signal confirmat
 
 ### 2. MACD (Moving Average Convergence Divergence)
 
-![MACD Indicator](images/macd-indicator.svg)
+![MACD Indicator](images/macd-indicator.png)
 
 | Parameter | Value | Purpose |
 |-----------|-------|---------|
@@ -146,7 +146,7 @@ Our trading bots utilize three primary technical indicators for signal confirmat
 
 ### 3. ATR (Average True Range)
 
-![ATR Indicator](images/atr-indicator.svg)
+![ATR Indicator](images/atr-indicator.png)
 
 | Parameter | Value | Purpose |
 |-----------|-------|---------|
