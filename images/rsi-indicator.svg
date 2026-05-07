@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" width="800" height="400">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#16213e;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="rsiLine" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#00d4ff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00ff88;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="800" height="400" fill="url(#bg)" rx="10"/>
+  
+  <!-- Title -->
+  <text x="400" y="30" font-family="Arial, sans-serif" font-size="20" fill="#ffffff" text-anchor="middle" font-weight="bold">RSI (Relative Strength Index)</text>
+  <text x="400" y="50" font-family="Arial, sans-serif" font-size="12" fill="#888888" text-anchor="middle">Period: 14 | Standard Momentum Indicator</text>
+  
+  <!-- Grid lines -->
+  <line x1="60" y1="80" x2="760" y2="80" stroke="#333" stroke-width="1"/>
+  <line x1="60" y1="160" x2="760" y2="160" stroke="#333" stroke-width="1"/>
+  <line x1="60" y1="240" x2="760" y2="240" stroke="#333" stroke-width="1"/>
+  <line x1="60" y1="320" x2="760" y2="320" stroke="#333" stroke-width="1"/>
+  
+  <!-- Labels -->
+  <text x="45" y="85" font-family="Arial" font-size="11" fill="#ff6b6b" text-anchor="end">70 (Overbought)</text>
+  <text x="45" y="165" font-family="Arial" font-size="11" fill="#888888" text-anchor="end">50 (Midline)</text>
+  <text x="45" y="245" font-family="Arial" font-size="11" fill="#4ecdc4" text-anchor="end">30 (Oversold)</text>
+  
+  <!-- Overbought zone -->
+  <rect x="60" y="80" width="700" height="40" fill="#ff6b6b" opacity="0.15"/>
+  <text x="400" y="108" font-family="Arial" font-size="10" fill="#ff6b6b" text-anchor="middle" opacity="0.7">SELL ZONE</text>
+  
+  <!-- Oversold zone -->
+  <rect x="60" y="240" width="700" height="40" fill="#4ecdc4" opacity="0.15"/>
+  <text x="400" y="268" font-family="Arial" font-size="10" fill="#4ecdc4" text-anchor="middle" opacity="0.7">BUY ZONE</text>
+  
+  <!-- RSI Line -->
+  <polyline points="60,280 100,260 140,270 180,240 220,220 260,230 300,180 340,160 380,170 420,140 460,130 500,150 540,120 580,130 620,100 660,110 700,90 740,95 760,80"
+            fill="none" stroke="url(#rsiLine)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Last value -->
+  <circle cx="760" cy="80" r="6" fill="#00ff88"/>
+  <text x="760" y="65" font-family="Arial" font-size="12" fill="#00ff88" text-anchor="middle" font-weight="bold">72</text>
+  
+  <!-- Legend -->
+  <rect x="60" y="350" width="700" height="35" rx="5" fill="#222" opacity="0.5"/>
+  <text x="80" y="370" font-family="Arial" font-size="11" fill="#ffffff" text-anchor="start">RSI > 70: Overbought (Sell Signal)</text>
+  <text x="410" y="370" font-family="Arial" font-size="11" fill="#888888" text-anchor="middle">|</text>
+  <text x="440" y="370" font-family="Arial" font-size="11" fill="#ffffff" text-anchor="start">RSI < 30: Oversold (Buy Signal)</text>
+  <text x="640" y="370" font-family="Arial" font-size="11" fill="#888888" text-anchor="middle">|</text>
+  <text x="670" y="370" font-family="Arial" font-size="11" fill="#ffffff" text-anchor="start">RSI = 50: Neutral</text>
+</svg>

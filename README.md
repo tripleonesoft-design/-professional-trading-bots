@@ -44,6 +44,13 @@ Features:
 
 ---
 
+> ⚠️ **Development Status**
+> - ✅ **SmartConsensus Pro & Variants** (BTC, ETH, Forex, Gold, Oil) - **Fully Functional & Production Ready**
+> - 🔄 **PriceAction Pro** - Under Development
+> - 🔄 **SmartConsensus Resilient** - Under Development
+
+---
+
 ### 2. PriceAction Pro (Pure Price Action)
 
 **Stripped-down price action only version.**
@@ -90,6 +97,7 @@ We teach you how institutions trade:
 | **Buy Stop** | Breakout above resistance | "Momentum breakout" |
 | **Sell Stop** | Breakdown below support | "momentum breakdown" |
 | **Buy Stop Limit** | Breakout + retest confirmation | "Advanced confirmation" |
+| **Sell Stop Limit** | Breakdown + retest confirmation | "Advanced breakdown" |
 
 ### Critical: Fill Policies
 
@@ -99,6 +107,58 @@ ORDER_FILLING_IOC   // Immediate or Cancel - Accept partial fill
 ORDER_FILLING_FOK  // Fill or Kill - Full volume only
 ORDER_FILLING_RETURN // Return - Keep remaining as pending
 ```
+
+---
+
+## Technical Indicators Used
+
+Our trading bots utilize three primary technical indicators for signal confirmation and risk management:
+
+### 1. RSI (Relative Strength Index)
+
+![RSI Indicator](images/rsi-indicator.svg)
+
+| Parameter | Value | Purpose |
+|-----------|-------|---------|
+| Period | 14 | Standard momentum measurement |
+| Overbought | > 70 | Sell signal / trend exhaustion |
+| Oversold | < 30 | Buy signal / trend reversal |
+| Midline | 50 | Trend direction filter |
+
+**How We Use It:** RSI confirms momentum alignment. Both RSI and MACD must agree on direction before execution.
+
+---
+
+### 2. MACD (Moving Average Convergence Divergence)
+
+![MACD Indicator](images/macd-indicator.svg)
+
+| Parameter | Value | Purpose |
+|-----------|-------|---------|
+| Fast EMA | 12 | Short-term momentum |
+| Slow EMA | 26 | Long-term momentum |
+| Signal Line | 9 | Smoothed crossovers |
+| Histogram | Difference | Momentum强度 |
+
+**How We Use It:** MACD crossover signals combined with RSI confirmation provide high-probability entries.
+
+---
+
+### 3. ATR (Average True Range)
+
+![ATR Indicator](images/atr-indicator.svg)
+
+| Parameter | Value | Purpose |
+|-----------|-------|---------|
+| Period | 14 | Standard volatility measurement |
+| Usage | SL/TP Sizing | Dynamic risk management |
+| Filter | Range Expansion | Confirm market movement |
+
+**How We Use It:** ATR determines stop-loss distance and Take-Profit targets. Trades only execute when ATR shows healthy volatility (range expansion > 1.15x).
+
+---
+
+> **Tip:** All three indicators work together - MACD gives direction, RSI confirms momentum, ATR manages risk.
 
 ---
 
