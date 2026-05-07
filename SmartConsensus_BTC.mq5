@@ -313,31 +313,33 @@ Trade_Signal Analyze_Market() {
        Result.Limit_Price = Swing_Low_M15 + Minimum_Stop;
        Result.Stop_Price = Entry_Price + Result.ATR_Value * 0.3;
 
-       double Structural_SL = Swing_Low_M15 - Minimum_Stop;
-       double Volatility_SL = Entry_Price - ATR_Based_SL;
+double Max_Stop = MathMax(Minimum_Stop * 2, Result.ATR_Value * 0.8);
+        double Structural_SL = Swing_Low_M15 - Minimum_Stop;
+        double Volatility_SL = Entry_Price - ATR_Based_SL;
 
-       if(Structural_SL > Volatility_SL) {
-          Result.Stop_Loss = Structural_SL;
-       } else {
-          Result.Stop_Loss = Volatility_SL;
-       }
-       Result.Stop_Loss = MathMax(Result.Stop_Loss, Entry_Price - Minimum_Stop * 2);
-    }
-    else if(Downtrend) {
-       Result.Direction = -1;
-       Result.Entry_Price = Entry_Price;
-       Result.Limit_Price = Swing_High_M15 - Minimum_Stop;
-       Result.Stop_Price = Entry_Price - Result.ATR_Value * 0.3;
+        if(Structural_SL > Volatility_SL) {
+           Result.Stop_Loss = Structural_SL;
+        } else {
+           Result.Stop_Loss = Volatility_SL;
+        }
+        Result.Stop_Loss = MathMin(Result.Stop_Loss, Entry_Price - Max_Stop);
+     }
+     else if(Downtrend) {
+        Result.Direction = -1;
+        Result.Entry_Price = Entry_Price;
+        Result.Limit_Price = Swing_High_M15 - Minimum_Stop;
+        Result.Stop_Price = Entry_Price - Result.ATR_Value * 0.3;
 
-       double Structural_SL = Swing_High_M15 + Minimum_Stop;
-       double Volatility_SL = Entry_Price + ATR_Based_SL;
+        double Max_Stop_SELL = MathMax(Minimum_Stop * 2, Result.ATR_Value * 0.8);
+        double Structural_SL = Swing_High_M15 + Minimum_Stop;
+        double Volatility_SL = Entry_Price + ATR_Based_SL;
 
-       if(Structural_SL < Volatility_SL) {
-          Result.Stop_Loss = Structural_SL;
-       } else {
-          Result.Stop_Loss = Volatility_SL;
-       }
-       Result.Stop_Loss = MathMin(Result.Stop_Loss, Entry_Price + Minimum_Stop * 2);
+        if(Structural_SL < Volatility_SL) {
+           Result.Stop_Loss = Structural_SL;
+        } else {
+           Result.Stop_Loss = Volatility_SL;
+        }
+        Result.Stop_Loss = MathMax(Result.Stop_Loss, Entry_Price + Max_Stop_SELL);
      }
 
     double Actual_Risk = MathAbs(Result.Entry_Price - Result.Stop_Loss);
