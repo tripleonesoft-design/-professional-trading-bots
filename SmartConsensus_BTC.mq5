@@ -21,15 +21,15 @@ input int     Pending_Order_Expiry_Seconds = 43200;    // Pending Order Expiry: 
 input group "=== Risk Management ==="
 input double  Risk_Percent       = 1.0;        // Risk Per Trade: 1% of account
 input double  Reward_Risk_Ratio = 3.0;        // Reward to Risk Ratio: 1:3 (3.0 = 3x reward)
-input int     Maximum_Spread_Points = 1200;        // Maximum Spread (points)
-input int     Slippage_Points    = 200;        // Slippage: 200 points
+input int     Maximum_Spread_Points = 4500;        // Maximum Spread (points)
+input int     Slippage_Points    = 2000;        // Slippage: 2000 points
 input double  Maximum_Lot_Size  = 0.01;       // Max Lot Size (from Settings)
 input double  Min_Lot_Size      = 0.01;       // Min Lot Size (from Settings)
 
 input group "=== Trading Settings (Exness Optimized) ==="
-input int     Daily_Trade_Target     = 6;        // Daily Trade Target: 6 trades per day
-input int     Minimum_Confirmations  = 3;       // Minimum Confirmations: 3 required
-input double  ATR_Filter_Min       = 800.0;      // Minimum ATR in points
+input int     Daily_Trade_Target     = 10;        // Daily Trade Target: 10 trades per day
+input int     Minimum_Confirmations  = 2;       // Minimum Confirmations: 2 required
+input double  ATR_Filter_Min       = 35000.0;    // Minimum ATR in points
 input int     Cooldown_Seconds       = 0;         // Cooldown: 0 seconds (no cooldown)
 
 input group "=== Fill Policy ==="
@@ -55,7 +55,8 @@ input bool Enable_Debug_Prints = false;
 //+------------------------------------------------------------------+
 // Named Constants for Magic Numbers
 const double SL_MULTIPLIER = 1.5;
-const double MIN_SL_MULTIPLIER = 1.0;
+const double MIN_SL_MULTIPLIER = 1.5;
+const double MAX_STOP_BROKER_MULTIPLIER = 2.0;
 const double STOP_PRICE_ATR_MULTIPLIER = 0.3;
 const double LIMIT_PRICE_ATR_OFFSET = 0.1;
 const double PINBAR_BODY_RATIO = 0.35;
@@ -364,7 +365,7 @@ Trade_Signal Analyze_Market() {
    double Swing_Low_M15 = iLow(_Symbol, Timeframe_Entry, iLowest(_Symbol, Timeframe_Entry, MODE_LOW, 20, 1));
    double Swing_High_M15 = iHigh(_Symbol, Timeframe_Entry, iHighest(_Symbol, Timeframe_Entry, MODE_HIGH, 20, 1));
 
-   double ATR_Based_SL = Result.ATR_Value * 0.8;
+   double ATR_Based_SL = Result.ATR_Value * MIN_SL_MULTIPLIER;
    
    double Entry_Price = (Uptrend) ? SymbolInfoDouble(_Symbol, SYMBOL_ASK) : SymbolInfoDouble(_Symbol, SYMBOL_BID);
 
@@ -374,7 +375,7 @@ if(Uptrend) {
         Result.Stop_Price = Entry_Price + Result.ATR_Value * STOP_PRICE_ATR_MULTIPLIER;
         Result.Limit_Price = Result.Stop_Price + Result.ATR_Value * LIMIT_PRICE_ATR_OFFSET;
 
-        double Max_Stop = MathMax(Minimum_Stop * 2, Result.ATR_Value * SL_MULTIPLIER);
+        double Max_Stop = MathMax(Minimum_Stop * MAX_STOP_BROKER_MULTIPLIER, Result.ATR_Value * MIN_SL_MULTIPLIER);
         double Structural_SL = Swing_Low_M15 - Minimum_Stop;
         double Volatility_SL = Entry_Price - ATR_Based_SL;
 
@@ -391,7 +392,7 @@ if(Uptrend) {
         Result.Stop_Price = Entry_Price - Result.ATR_Value * STOP_PRICE_ATR_MULTIPLIER;
         Result.Limit_Price = Result.Stop_Price - Result.ATR_Value * LIMIT_PRICE_ATR_OFFSET;
 
-        double Max_Stop_SELL = MathMax(Minimum_Stop * 2, Result.ATR_Value * SL_MULTIPLIER);
+        double Max_Stop_SELL = MathMax(Minimum_Stop * MAX_STOP_BROKER_MULTIPLIER, Result.ATR_Value * MIN_SL_MULTIPLIER);
         double Structural_SL = Swing_High_M15 + Minimum_Stop;
         double Volatility_SL = Entry_Price + ATR_Based_SL;
 
@@ -435,7 +436,7 @@ double Calculate_Lot_Size(double Entry_Price, double Stop_Loss, double ATR) {
      double Risk_Amount = Account_Balance * Risk_Percent / 100.0;
      double Stop_Distance = MathAbs(Entry_Price - Stop_Loss);
 
-     double Min_Stop_Distance = ATR * SL_MULTIPLIER;
+     double Min_Stop_Distance = ATR * MIN_SL_MULTIPLIER;
      if(Stop_Distance < Min_Stop_Distance) Stop_Distance = Min_Stop_Distance;
    
    double Min_Lot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
@@ -722,7 +723,7 @@ double ATR = Get_ATR_Value(Timeframe_Entry, 0);
 
 double Validate_Stop_Loss(int Direction, double Entry, double Stop_Loss, double ATR) {
      double Broker_Min_Stop = Get_Minimum_Stop_Distance();
-     double ATR_Min_Stop = ATR * SL_MULTIPLIER;
+     double ATR_Min_Stop = ATR * MIN_SL_MULTIPLIER;
      double Min_Acceptable = MathMax(Broker_Min_Stop, ATR_Min_Stop);
 
      if(Enable_Debug_Prints) Print("DEBUG Validate_SL: Dir=", Direction, " Entry=", Entry, " SL_in=", Stop_Loss, " ATR=", ATR, " Min=", Min_Acceptable);
@@ -739,7 +740,7 @@ double Validate_Stop_Loss(int Direction, double Entry, double Stop_Loss, double 
 
 double Adjust_Stop_Loss_For_Pending(ENUM_ORDER_TYPE Order_Type, double Price, double Current_Price, double Stop_Loss, int Direction, double ATR) {
      double Broker_Min_Stop = Get_Minimum_Stop_Distance();
-     double ATR_Min_Stop = ATR * SL_MULTIPLIER;
+     double ATR_Min_Stop = ATR * MIN_SL_MULTIPLIER;
      double Minimum_Stop = MathMax(Broker_Min_Stop, ATR_Min_Stop);
     bool Is_Buy_Order = (Order_Type == ORDER_TYPE_BUY_LIMIT || Order_Type == ORDER_TYPE_BUY_STOP || Order_Type == ORDER_TYPE_BUY_STOP_LIMIT);
     double Adjusted_SL = Stop_Loss;

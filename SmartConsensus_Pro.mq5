@@ -21,14 +21,14 @@ input int     Pending_Order_Expiry_Seconds = 43200;    // Pending Order Expiry: 
 input group "=== Risk Management ==="
 input double  Risk_Percent       = 1.0;        // Risk Per Trade: 1% of account
 input double  Reward_Risk_Ratio = 3.0;        // Reward to Risk Ratio: 1:3 (3.0 = 3x reward)
-input int     Maximum_Spread_Points = 300;        // Maximum Spread (points)
-input int     Slippage_Points    = 200;        // Slippage: 200 points
+input int     Maximum_Spread_Points = 4500;       // Maximum Spread (points)
+input int     Slippage_Points    = 2000;       // Slippage: 2000 points
 input double  Maximum_Lot_Size  = 100.0;       // Max Lot Size (from Settings)
 
 input group "=== Trading Settings (Exness Optimized) ==="
-input int     Daily_Trade_Target     = 6;        // Daily Trade Target: 6 trades per day
-input int     Minimum_Confirmations  = 3;       // Minimum Confirmations: 3 required
-input double  Minimum_ATR_Filter     = 15.0;      // Minimum ATR in points (e.g., 15 = 0.15 for 5-digit Forex, 15 = 1.50 for 3-digit Gold)
+input int     Daily_Trade_Target     = 10;        // Daily Trade Target: 10 trades per day
+input int     Minimum_Confirmations  = 2;       // Minimum Confirmations: 2 required
+input double  Minimum_ATR_Filter     = 35000.0;    // Minimum ATR in points (BTC: 35000)
 input int     Cooldown_Seconds       = 0;         // Cooldown: 0 seconds (no cooldown)
 
 input group "=== Fill Policy ==="
@@ -54,7 +54,8 @@ input bool Enable_Debug_Prints = false;
 //+------------------------------------------------------------------+
 // Named Constants for Magic Numbers
 const double SL_MULTIPLIER = 1.5;
-const double MIN_SL_MULTIPLIER = 1.0;
+const double MIN_SL_MULTIPLIER = 1.5;
+const double MAX_STOP_BROKER_MULTIPLIER = 2.0;
 const double STOP_PRICE_ATR_MULTIPLIER = 0.3;
 const double LIMIT_PRICE_ATR_OFFSET = 0.1;
 const double PINBAR_BODY_RATIO = 0.35;
@@ -370,7 +371,7 @@ Trade_Signal Analyze_Market() {
    double Swing_Low_M15 = iLow(_Symbol, Timeframe_Entry, iLowest(_Symbol, Timeframe_Entry, MODE_LOW, 20, 1));
    double Swing_High_M15 = iHigh(_Symbol, Timeframe_Entry, iHighest(_Symbol, Timeframe_Entry, MODE_HIGH, 20, 1));
 
-   double ATR_Based_SL = Result.ATR_Value * SL_MULTIPLIER;
+   double ATR_Based_SL = Result.ATR_Value * MIN_SL_MULTIPLIER;
 
    double Entry_Price = (Direction == 1) ? SymbolInfoDouble(_Symbol, SYMBOL_ASK) : SymbolInfoDouble(_Symbol, SYMBOL_BID);
 
@@ -388,7 +389,7 @@ if(Uptrend) {
         } else {
            Result.Stop_Loss = Volatility_SL;
         }
-        Result.Stop_Loss = MathMax(Result.Stop_Loss, Entry_Price - Minimum_Stop * 2);
+        Result.Stop_Loss = MathMax(Result.Stop_Loss, Entry_Price - Minimum_Stop * MAX_STOP_BROKER_MULTIPLIER);
      }
      else if(Downtrend) {
         Result.Direction = -1;
@@ -404,7 +405,7 @@ if(Uptrend) {
         } else {
            Result.Stop_Loss = Volatility_SL;
         }
-        Result.Stop_Loss = MathMin(Result.Stop_Loss, Entry_Price + Minimum_Stop * 2);
+        Result.Stop_Loss = MathMin(Result.Stop_Loss, Entry_Price + Minimum_Stop * MAX_STOP_BROKER_MULTIPLIER);
       }
 
     double Actual_Risk = MathAbs(Result.Entry_Price - Result.Stop_Loss);

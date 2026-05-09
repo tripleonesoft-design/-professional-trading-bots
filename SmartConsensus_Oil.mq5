@@ -21,15 +21,15 @@ input int     Pending_Order_Expiry_Seconds = 43200;
 input group "=== Risk Management (Exness Optimized - Research Based) ==="
 input double  Risk_Percent         = 2.0;
 input double  Reward_Risk_Ratio    = 3.0;
-input int     Maximum_Spread_Points = 40;       // Maximum Spread (points)
-input int     Slippage_Points      = 25;
+input int     Maximum_Spread_Points = 150;       // Maximum Spread (points)
+input int     Slippage_Points      = 100;
 input double  Maximum_Lot_Size     = 0.1;
 input double  Min_Lot_Size         = 0.01;
 
 input group "=== Trading Settings (Exness Optimized) ==="
-input int     Daily_Trade_Target    = 6;
-input int     Minimum_Confirmations = 3;
-input double  ATR_Filter_Min       = 40.0;   // Minimum ATR in points (e.g., 40 = 0.40 for 3-digit Oil)
+input int     Daily_Trade_Target    = 10;
+input int     Minimum_Confirmations = 2;
+input double  ATR_Filter_Min       = 350.0;  // Minimum ATR in points
 input int     Cooldown_Seconds       = 0;
 
 input group "=== Fill Policy ==="
@@ -55,7 +55,8 @@ input bool Enable_Debug_Prints = false;
 //+------------------------------------------------------------------+
 // Named Constants for Magic Numbers
 const double SL_MULTIPLIER = 1.5;
-const double MIN_SL_MULTIPLIER = 1.0;
+const double MIN_SL_MULTIPLIER = 1.5;
+const double MAX_STOP_BROKER_MULTIPLIER = 2.0;
 const double STOP_PRICE_ATR_MULTIPLIER = 0.3;
 const double LIMIT_PRICE_ATR_OFFSET = 0.1;
 const double PINBAR_BODY_RATIO = 0.35;
@@ -353,7 +354,7 @@ Trade_Signal Analyze_Market() {
    double Swing_Low_M15 = iLow(_Symbol, Timeframe_Entry, iLowest(_Symbol, Timeframe_Entry, MODE_LOW, 20, 1));
    double Swing_High_M15 = iHigh(_Symbol, Timeframe_Entry, iHighest(_Symbol, Timeframe_Entry, MODE_HIGH, 20, 1));
 
-double ATR_Based_SL = Result.ATR_Value * SL_MULTIPLIER;
+double ATR_Based_SL = Result.ATR_Value * MIN_SL_MULTIPLIER;
    double Minimum_SL_Distance = Result.ATR_Value * MIN_SL_MULTIPLIER;
 
    double Entry_Price = (Uptrend) ? SymbolInfoDouble(_Symbol, SYMBOL_ASK) : SymbolInfoDouble(_Symbol, SYMBOL_BID);
@@ -425,7 +426,7 @@ double Calculate_Lot_Size(double Entry_Price, double Stop_Loss, double ATR) {
    double Risk_Amount = Account_Balance * Risk_Percent / 100.0;
    double Stop_Distance = MathAbs(Entry_Price - Stop_Loss);
    
-   double Min_Stop_Distance = ATR * 0.8;
+   double Min_Stop_Distance = ATR * MIN_SL_MULTIPLIER;
    if(Stop_Distance < Min_Stop_Distance) Stop_Distance = Min_Stop_Distance;
    
    double Tick_Value = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
