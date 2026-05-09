@@ -32,15 +32,22 @@ We build **institutional-grade trading bots** that combine:
 Features:
 ├── All Order Types: Market, Limit, Stop, Stop-Limit
 ├── Timeframes: H1 (Trend) + M15 (Entry)
-├── Daily Target: 6 trades per day
-├── Confirmations: 3 required for execution
-├── Risk:Reward: 1:2 (configurable)
+├── Daily Target: 10 trades per day
+├── Confirmations: 2 required for execution
+├── Risk:Reward: 1:3 (configurable)
 ├── Pending Orders: 12-hour expiry
 ├── No Auto-Close: Let orders fill or expire naturally
 └── Fill Policy: IOC (Immediate or Cancel)
 ```
 
 **Ideal For:** Continuous daily trading with multiple order types
+
+---
+
+> ⚠️ **Development Status**
+> - ✅ **SmartConsensus Pro & Variants** (BTC, ETH, Forex, Gold, Oil) - **Fully Functional & Production Ready**
+> - 🔄 **PriceAction Pro** - Under Development
+> - 🔄 **SmartConsensus Resilient** - Under Development
 
 ---
 
@@ -90,6 +97,7 @@ We teach you how institutions trade:
 | **Buy Stop** | Breakout above resistance | "Momentum breakout" |
 | **Sell Stop** | Breakdown below support | "momentum breakdown" |
 | **Buy Stop Limit** | Breakout + retest confirmation | "Advanced confirmation" |
+| **Sell Stop Limit** | Breakdown + retest confirmation | "Advanced breakdown" |
 
 ### Critical: Fill Policies
 
@@ -102,11 +110,63 @@ ORDER_FILLING_RETURN // Return - Keep remaining as pending
 
 ---
 
+## Technical Indicators Used
+
+Our trading bots utilize three primary technical indicators for signal confirmation and risk management:
+
+### 1. RSI (Relative Strength Index)
+
+![RSI Indicator](images/rsi-indicator.png)
+
+| Parameter | Value | Purpose |
+|-----------|-------|---------|
+| Period | 14 | Standard momentum measurement |
+| Overbought | > 70 | Sell signal / trend exhaustion |
+| Oversold | < 30 | Buy signal / trend reversal |
+| Midline | 50 | Trend direction filter |
+
+**How We Use It:** RSI confirms momentum alignment. Both RSI and MACD must agree on direction before execution.
+
+---
+
+### 2. MACD (Moving Average Convergence Divergence)
+
+![MACD Indicator](images/macd-indicator.png)
+
+| Parameter | Value | Purpose |
+|-----------|-------|---------|
+| Fast EMA | 12 | Short-term momentum |
+| Slow EMA | 26 | Long-term momentum |
+| Signal Line | 9 | Smoothed crossovers |
+| Histogram | Difference | Momentum强度 |
+
+**How We Use It:** MACD crossover signals combined with RSI confirmation provide high-probability entries.
+
+---
+
+### 3. ATR (Average True Range)
+
+![ATR Indicator](images/atr-indicator.png)
+
+| Parameter | Value | Purpose |
+|-----------|-------|---------|
+| Period | 14 | Standard volatility measurement |
+| Usage | SL/TP Sizing | Dynamic risk management |
+| Filter | Range Expansion | Confirm market movement |
+
+**How We Use It:** ATR determines stop-loss distance and Take-Profit targets. Trades only execute when ATR shows healthy volatility (range expansion > 1.15x).
+
+---
+
+> **Tip:** All three indicators work together - MACD gives direction, RSI confirms momentum, ATR manages risk.
+
+---
+
 ## Technical Specifications
 
-### Confirmation Score (Minimum 3 Required)
+### Confirmation Score (Minimum 2 Required)
 
-Each trade requires **3+ confirmations** from these 8 checks:
+Each trade requires **2+ confirmations** from these 8 checks:
 
 1. **Candle Pattern** - Bullish/Bearish candle formation
 2. **Volume Spike** - Above 1.3x average
@@ -141,71 +201,92 @@ input int Slippage = 100;            // Slippage tolerance
 
 ---
 
-## Market-Optimized Bots (New!)
+## Market-Optimized Bots - Exness Broker Configuration (May 2026)
 
-Specialized versions of SmartConsensus Pro optimized for specific markets with calibrated settings:
+Specialized versions of SmartConsensus Pro optimized for specific markets with Exness broker calibrated settings:
 
-### 1. SmartConsensus_Forex.mq5 (Liquid Forex)
-**Optimized for EURUSD, GBPUSD, and other major pairs.**
+### Asset Configuration Table
 
-| Setting | Value | Purpose |
-|---------|-------|---------|
-| Max Spread | 35 pts (3.5 pips) | Blocks high-cost sessions |
-| ATR Filter | 50 pts | Filters dead Asian sessions |
-| SL Multiplier | 1.2× ATR | Tight stop for majors |
-| Max Lot | **1.0** | Conservative for pairs |
-| Trailing | Start 1.0×, Step 0.5× | Secures gains incrementally |
-| Risk | 2% | Standard risk |
+| Asset | Digits | ATR Filter (pts) | Max Spread (pts) | Slippage (pts) | Dollar/Pip Value |
+|-------|--------|------------------|------------------|----------------|------------------|
+| **Pro** (BTC config) | 2 | 35,000 | 4,500 | 2,000 | $350 ATR / $45 Spread |
+| **BTC** (BTCUSD) | 2 | 35,000 | 4,500 | 2,000 | $350 ATR / $45 Spread |
+| **ETH** (ETHUSD) | 2 | 1,500 | 1,200 | 800 | $15 ATR / $12 Spread |
+| **Gold** (XAUUSD) | 3 | 3,000 | 2,500 | 1,500 | $3.00 ATR / $2.50 Spread |
+| **Oil** (USOIL) | 3 | 350 | 150 | 100 | $0.35 ATR / $0.15 Spread |
+| **Forex** (EUR/GBPUSD) | 5 | 100 | 60 | 50 | 10 Pips ATR / 6 Pips Spread |
 
-### 2. SmartConsensus_Gold.mq5 (XAUUSD)
-**Optimized for Gold trading on M15 timeframe.**
+### Trading Parameters (All Assets)
 
 | Setting | Value | Purpose |
 |---------|-------|---------|
-| Max Spread | 85 pts ($0.85) | Ceiling for day trading |
-| ATR Filter | 180 pts ($1.80) | Ensures healthy momentum |
-| SL Multiplier | 1.0× ATR | Tighter than default |
-| Max Lot | **0.1** | Low due to high nominal value |
-| Trailing | Start 1.2×, Step 0.6× | Locks profit at 20% of move |
-| Risk | 2% | Standard risk |
+| Daily Trade Target | 10 trades | Increased opportunity |
+| Min Confirmations | 2 required | Faster execution |
+| Risk:Reward | 1:3 | Professional ratio |
+| SL Multiplier | 1.5× ATR | Dynamic stop loss |
+| Min SL Multiplier | 1.5× ATR | Minimum stop distance |
+| Max Broker Stop | 2.0× | Broker limit multiplier |
+| Fill Policy | IOC | Immediate or Cancel |
+| Trailing Start | 1.2× ATR | Profit lock threshold |
+| Trailing Step | 0.6× ATR | Step increment |
 
-### 3. SmartConsensus_BTC.mq5 (Bitcoin)
+### Bot-Specific Settings
+
+#### 1. SmartConsensus_Pro.mq5 (Main Production Bot)
+**Uses BTC configuration as default.**
+
+| Setting | Value | Purpose |
+|---------|-------|---------|
+| Max Spread | 4,500 pts | Covers BTC volatility |
+| Slippage | 2,000 pts | High slippage tolerance |
+| ATR Filter | 35,000 pts | Ensures momentum |
+
+#### 2. SmartConsensus_BTC.mq5 (Bitcoin)
 **Optimized for BTCUSD with crypto-specific settings.**
 
 | Setting | Value | Purpose |
 |---------|-------|---------|
-| Max Spread | 3000 pts ($30) | Covers normal volatility |
-| ATR Filter | 1000 pts ($10) | Avoids flat ranges |
-| SL Multiplier | **0.5× ATR** | Safer for crypto (reduced from 1.5×) |
-| Max Lot | **0.1** | Very conservative (high value) |
-| Trailing | Start 1.5×, Step 0.75× | Waits for $15 profit before trail |
-| Risk | 2% | Standard risk |
+| Max Spread | 4,500 pts ($45) | Covers normal volatility |
+| ATR Filter | 35,000 pts ($350) | Avoids flat ranges |
+| Max Lot | **0.1** | Conservative (high value) |
 
-### 4. SmartConsensus_ETH.mq5 (Ethereum)
+#### 3. SmartConsensus_ETH.mq5 (Ethereum)
 **Optimized for ETHUSD with altcoin considerations.**
 
 | Setting | Value | Purpose |
 |---------|-------|---------|
-| Max Spread | 500 pts ($5) | Covers liquidity drops |
-| ATR Filter | 250 pts ($2.50) | Filters minor spikes |
-| SL Multiplier | 0.8× ATR | Balanced for alts |
-| Max Lot | **1.0** | Higher than BTC (lower value) |
-| Trailing | Start 1.2×, Step 0.6× | Locks at $3.00 profit |
-| Risk | 2% | Standard risk |
+| Max Spread | 1,200 pts ($12) | Covers liquidity drops |
+| ATR Filter | 1,500 pts ($15) | Filters minor spikes |
+| Max Lot | **1.0** | Higher than BTC |
 
-### 5. SmartConsensus_Oil.mq5 (Crude Oil)
+#### 4. SmartConsensus_Gold.mq5 (XAUUSD)
+**Optimized for Gold trading on M15 timeframe.**
+
+| Setting | Value | Purpose |
+|---------|-------|---------|
+| Max Spread | 2,500 pts ($25) | High for gold volatility |
+| ATR Filter | 3,000 pts ($30) | Ensures healthy momentum |
+| Max Lot | **0.1** | Low due to high nominal value |
+
+#### 5. SmartConsensus_Oil.mq5 (Crude Oil)
 **Optimized for Crude Oil (WTI/Brent) trading.**
 
 | Setting | Value | Purpose |
 |---------|-------|---------|
-| Max Spread | 12 pts ($0.12) | Highly liquid market |
-| ATR Filter | 45 pts ($0.45) | Ensures $0.45+ movement |
-| SL Multiplier | 1.2× ATR | Standard for oil |
+| Max Spread | 150 pts ($1.50) | Highly liquid market |
+| ATR Filter | 350 pts ($3.50) | Ensures movement |
 | Max Lot | **0.1** | Conservative |
-| Trailing | Start 1.0×, Step 0.5× | Quick profit lock |
-| Risk | 2% | Standard risk |
 
-> **Note:** The original `SmartConsensus_Pro.mq5` is preserved unchanged. Use the specialized versions for better performance per market.
+#### 6. SmartConsensus_Forex.mq5 (EUR/GBPUSD)
+**Optimized for major Forex pairs.**
+
+| Setting | Value | Purpose |
+|---------|-------|---------|
+| Max Spread | 60 pts (6 pips) | Major pair liquidity |
+| ATR Filter | 100 pts (10 pips) | Filters dead sessions |
+| Max Lot | **1.0** | Higher for Forex |
+
+> **Note:** The original `SmartConsensus_Pro.mq5` uses BTC configuration. Use the specialized versions for better performance per market.
 
 ---
 
