@@ -79,13 +79,6 @@ const int RSI_ZONE_OVERSOLD            = 40;
 const int RSI_ZONE_OVERBOUGHT          = 55;
 const int MTF_ALIGNMENT_SCORE         = 2;
 
-const int FVG_VALID_BARS               = 8;
-const int VOLUME_SPIKE_LOOKBACK        = 3;
-const int RANGE_EXPANSION_LOOKBACK     = 3;
-const int CONSOLIDATION_BREAK_LOOKBACK = 5;
-const int RSI_ZONE_OVERSOLD            = 40;
-const int RSI_ZONE_OVERBOUGHT           = 55;
-
 //+------------------------------------------------------------------+
 double   Point_Value, Digits_Value;
 int      Indicator_Handle_ATR_High, Indicator_Handle_ATR_Low;
