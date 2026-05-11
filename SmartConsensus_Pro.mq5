@@ -3,8 +3,8 @@
 //|                             Professional Trader v12.0           |
 //+------------------------------------------------------------------+
 #property copyright "Professional Trading System"
-#property version   "12.10"
-#property description "Production Ready - Fixed Risk/Reward 1:3 - All Order Types"
+#property version   "12.23"
+#property description "Production Ready - Signal Memory / Lookback Windows - Fixed Risk/Reward 1:3 - All Order Types"
 
 input group "=== Timeframes ==="
 input ENUM_TIMEFRAMES Timeframe_Trend  = PERIOD_H1;      // Higher Timeframe: 1 Hour (Trend)
@@ -18,11 +18,12 @@ input bool    Enable_StopLimit_Orders = true;       // Stop-Limit Orders: Buy St
 input int     Pending_Order_Expiry_Seconds = 43200;    // Pending Order Expiry: 12 Hours (43200 seconds)
 
 input group "=== Risk Management ==="
-input double  Risk_Percent       = 1.0;        // Risk Per Trade: 1% of account
-input double  Reward_Risk_Ratio = 3.0;        // Reward to Risk Ratio: 1:3 (3.0 = 3x reward)
-input int     Maximum_Spread_Points = 300;        // Maximum Spread: 300 points
-input int     Slippage_Points    = 200;        // Slippage: 200 points
-input double  Maximum_Lot_Size  = 100.0;       // Max Lot Size (from Settings)
+input double  Risk_Percent       = 1.0;
+input double  SL_MULTIPLIER     = 1.0;        // SL Multiplier: ATR-based stop loss multiplier
+input double  Reward_Risk_Ratio = 3.0;
+input int     Maximum_Spread_Points = 300;
+input int     Slippage_Points    = 200;
+input double  Maximum_Lot_Size  = 100.0;
 
 input group "=== Trading Settings ==="
 input int     Daily_Trade_Target     = 6;        // Daily Trade Target: 6 trades per day
@@ -47,6 +48,18 @@ input int MACD_Slow_Period = 26;
 input int MACD_Signal_Period = 9;
 input int ATR_Period     = 14;
 
+input group "=== Signal Memory / Lookback Windows ==="
+input int STRUCTURAL_LOOKBACK          = 5;     // Structural events valid for N bars
+input int FVG_VALID_BARS               = 5;     // FVG/OB valid within N bars
+input int VOLUME_SPIKE_LOOKBACK        = 2;     // Volume spike lookback bars
+input int RANGE_EXPANSION_LOOKBACK     = 2;     // Range expansion lookback bars
+input int LIQUIDITY_SWEEP_LOOKBACK     = 5;     // Liquidity sweep lookback bars
+input int CONSOLIDATION_BREAK_LOOKBACK = 4;     // Consolidation break lookback bars
+input int MTF_ALIGNMENT_SCORE         = 1;     // MTF alignment contribution (1-2)
+input int RSI_ZONE_OVERSOLD            = 35;    // RSI zone for buy
+input int RSI_ZONE_OVERBOUGHT          = 65;    // RSI zone for sell
+input bool Enable_Debug_Prints        = true;   // Debug print for signal breakdown
+
 //+------------------------------------------------------------------+
 double   Point_Value, Digits_Value;
 int      Indicator_Handle_ATR_High, Indicator_Handle_ATR_Low;
@@ -60,6 +73,12 @@ int      Today_Trade_Count = 0;
 string   GlobalPrefix = "SmartConsensus_";
 const int Magic_Number = 20251201;
 bool     Trading_Enabled = true;
+
+int    Last_Liquidity_Sweep_Bar = -1;
+int    Last_FVG_Bar = -1;
+int    Last_Consolidation_Break_Bar = -1;
+bool   Multitimeframe_Aligned_Bull = false;
+bool   Multitimeframe_Aligned_Bear = false;
 
 struct Trade_Signal {
    int    Direction;           // 1 = Buy, -1 = Sell
@@ -128,7 +147,9 @@ Initialize_Daily_Trades();
    Print("Timeframes: ", EnumToString(Timeframe_Trend), " (Trend) / ", EnumToString(Timeframe_Entry), " (Entry)");
    Print("Daily Target: ", Daily_Trade_Target, " trades");
    Print("Confirmations Required: ", Minimum_Confirmations);
-   Print("Reward Risk Ratio: 1:", Reward_Risk_Ratio);
+   Print("SL Multiplier: ", SL_MULTIPLIER, "x ATR");
+    Print("Reward Risk Ratio: 1:", Reward_Risk_Ratio);
+    Print("Stop-Limit Fill Distance: 10% ATR");
    Print("Fill Policy: ", EnumToString(Fill_Policy));
    Print("Order Types: Market=", Enable_Market_Orders, " Limit=", Enable_Limit_Orders, " Stop=", Enable_Stop_Orders, " StopLimit=", Enable_StopLimit_Orders);
    Print("=======================================================");
@@ -153,140 +174,133 @@ void OnDeinit(const int reason) {
 }
 
 void OnTick() {
-   static datetime Last_Settings_Check = 0;
-   datetime Current_Time = TimeCurrent();
-   
-   if(Current_Time - Last_Settings_Check >= 1) {
-      Last_Settings_Check = Current_Time;
-      
-      MqlDateTime Current_Time_Struct, Day_Start_Time_Struct;
-      TimeToStruct(Current_Time, Current_Time_Struct);
-      TimeToStruct(Day_Start_Time, Day_Start_Time_Struct);
-      
-if(Current_Time_Struct.day != Day_Start_Time_Struct.day) {
+    static datetime Last_Settings_Check = 0;
+    datetime Current_Time = TimeCurrent();
+    
+    if(Current_Time - Last_Settings_Check >= 1) {
+       Last_Settings_Check = Current_Time;
+       
+       MqlDateTime ct, ds;
+       TimeToStruct(Current_Time, ct);
+       TimeToStruct(Day_Start_Time, ds);
+       
+       if(ct.day != ds.day) {
           Today_Trade_Count = 0;
           Day_Start_Time = Current_Time;
-          string GV_Day = GlobalPrefix + _Symbol + "_Day";
-          GlobalVariableSet(GV_Day, Current_Time_Struct.day);
-          Save_Daily_Trades();
+          GlobalVariableSet(GlobalPrefix + _Symbol + "_Day", ct.day);
+          GlobalVariableSet(GlobalPrefix + _Symbol + "_TradeCount", 0);
        }
-       
-       if(Enable_Trailing_Stop) Manage_Trailing_Stops();
-   }
-}
-
-//+------------------------------------------------------------------+
-void OnTimer() {
-   MqlDateTime Current_Time_Struct, Day_Start_Time_Struct;
-   datetime Current_Time = TimeCurrent();
-   TimeToStruct(Current_Time, Current_Time_Struct);
-   TimeToStruct(Day_Start_Time, Day_Start_Time_Struct);
-   
-if(Current_Time_Struct.day != Day_Start_Time_Struct.day) {
-       Today_Trade_Count = 0;
-       Day_Start_Time = Current_Time;
-       string GV_Day = GlobalPrefix + _Symbol + "_Day";
-       GlobalVariableSet(GV_Day, Current_Time_Struct.day);
-       Save_Daily_Trades();
     }
     
+    if(Enable_Trailing_Stop) Manage_Trailing_Stops();
+    
     if(!Trading_Enabled) return;
-   
-   if(Enable_Trailing_Stop) Manage_Trailing_Stops();
-   
-   if(Today_Trade_Count >= Daily_Trade_Target) return;
-   
-   if(Cooldown_Seconds > 0 && Current_Time - Last_Trade_Time < Cooldown_Seconds) return;
-   
-   datetime Current_Bar = iTime(_Symbol, Timeframe_Entry, 0);
-   if(Current_Bar == Last_Analyzed_Bar) return;
-   Last_Analyzed_Bar = Current_Bar;
-   
-double Current_Spread = (SymbolInfoDouble(_Symbol, SYMBOL_ASK) - SymbolInfoDouble(_Symbol, SYMBOL_BID)) / Point_Value;
+    if(Today_Trade_Count >= Daily_Trade_Target) return;
+    if(Cooldown_Seconds > 0 && Current_Time - Last_Trade_Time < Cooldown_Seconds) return;
+    
+    datetime Current_Bar = iTime(_Symbol, Timeframe_Entry, 0);
+    if(Current_Bar == Last_Analyzed_Bar) return;
+    Last_Analyzed_Bar = Current_Bar;
+    Update_Multitimeframe_Alignment();
+    
+    double Current_Spread = (SymbolInfoDouble(_Symbol, SYMBOL_ASK) - SymbolInfoDouble(_Symbol, SYMBOL_BID)) / Point_Value;
     bool Spread_Too_High = (Current_Spread > Maximum_Spread_Points);
     if(Spread_Too_High) {
        Print("Spread Too High - Skipping order execution");
+       return;
     }
-   
-   Trade_Signal Signal = Analyze_Market();
-   if(Signal.Direction == 0) return;
-   
-   int Confirmation_Score = Calculate_Confirmation(Signal.Direction);
-   if(Confirmation_Score < Minimum_Confirmations) return;
-   
-   if(Signal.ATR_Value < Minimum_ATR_Filter * Point_Value) return;
-   
-   Print("=== Signal Detected: ", Signal.Direction==1?"BUY":"SELL");
-   Print("    Confirmation Score: ", Confirmation_Score, "/", Minimum_Confirmations);
-   Print("    Entry: ", DoubleToString(Signal.Entry_Price, (int)Digits_Value));
-   Print("    Stop Loss: ", DoubleToString(Signal.Stop_Loss, (int)Digits_Value));
-   Print("    Take Profit: ", DoubleToString(Signal.Take_Profit, (int)Digits_Value));
-   double Risk_Distance = MathAbs(Signal.Entry_Price - Signal.Stop_Loss);
-   double Reward_Distance = MathAbs(Signal.Take_Profit - Signal.Entry_Price);
-   double Actual_Ratio = Reward_Distance / Risk_Distance;
-   Print("    Risk/Reward: 1:", DoubleToString(Actual_Ratio, 2), " (Target: 1:", Reward_Risk_Ratio, ")");
-   Print("    ATR: ", DoubleToString(Signal.ATR_Value/Point_Value, 1), " points");
-   
-   double Lot_Size = Calculate_Lot_Size(Signal.Entry_Price, Signal.Stop_Loss);
-   if(Lot_Size < SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN)) return;
-   
-   bool Order_Executed = false;
-   string Execution_Type = "";
-   
-// Try Market Order First
+    
+    Trade_Signal Signal = Analyze_Market();
+    if(Signal.Direction == 0) return;
+    
+    int Confirmation_Score = Calculate_Confirmation(Signal.Direction);
+    if(Confirmation_Score < Minimum_Confirmations) return;
+    
+    if(Signal.ATR_Value < Minimum_ATR_Filter * Point_Value) return;
+    
+    Print("=== Signal Detected: ", Signal.Direction==1?"BUY":"SELL");
+    Print("    Confirmation Score: ", Confirmation_Score, "/", Minimum_Confirmations);
+    Print("    Entry: ", DoubleToString(Signal.Entry_Price, (int)Digits_Value));
+    Print("    Stop Loss: ", DoubleToString(Signal.Stop_Loss, (int)Digits_Value));
+    Print("    Take Profit: ", DoubleToString(Signal.Take_Profit, (int)Digits_Value));
+    double Risk_Distance = MathAbs(Signal.Entry_Price - Signal.Stop_Loss);
+    double Reward_Distance = MathAbs(Signal.Take_Profit - Signal.Entry_Price);
+    double Actual_Ratio = Reward_Distance / Risk_Distance;
+    Print("    Risk/Reward: 1:", DoubleToString(Actual_Ratio, 2), " (Target: 1:", Reward_Risk_Ratio, ")");
+    Print("    ATR: ", DoubleToString(Signal.ATR_Value/Point_Value, 1), " points");
+    
+    double Lot_Size = Calculate_Lot_Size(Signal.Entry_Price, Signal.Stop_Loss, Signal.ATR_Value);
+    if(Lot_Size < SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN)) return;
+    
+    bool Order_Executed = false;
+    string Execution_Type = "";
+    
     if(Enable_Market_Orders && !Spread_Too_High) {
-      if(Execute_Market_Order(Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit, Lot_Size)) {
-         Order_Executed = true;
-         Execution_Type = "MARKET";
-         Today_Trade_Count++;
-         Save_Daily_Trades();
-         Last_Trade_Time = Current_Time;
-      }
-   }
-   
-// Try Limit Order
+       if(Execute_Market_Order(Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit, Lot_Size)) {
+          Order_Executed = true;
+          Execution_Type = "MARKET";
+          Today_Trade_Count++;
+          Save_Daily_Trades();
+          Last_Trade_Time = Current_Time;
+       }
+    }
+    
     if(!Order_Executed && Enable_Limit_Orders && !Spread_Too_High) {
-      ENUM_ORDER_TYPE Order_Type = (Signal.Direction == 1) ? ORDER_TYPE_BUY_LIMIT : ORDER_TYPE_SELL_LIMIT;
-      if(Execute_Pending_Order(Order_Type, Signal.Entry_Price, Lot_Size, Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit)) {
-         Order_Executed = true;
-         Execution_Type = "LIMIT";
-         Today_Trade_Count++;
-         Save_Daily_Trades();
-         Last_Trade_Time = Current_Time;
-      }
-   }
-   
-// Try Stop Order
+       ENUM_ORDER_TYPE Order_Type = (Signal.Direction == 1) ? ORDER_TYPE_BUY_LIMIT : ORDER_TYPE_SELL_LIMIT;
+       if(Execute_Pending_Order(Order_Type, Signal.Entry_Price, Signal.Entry_Price, Lot_Size, Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit)) {
+          Order_Executed = true;
+          Execution_Type = "LIMIT";
+          Today_Trade_Count++;
+          Save_Daily_Trades();
+          Last_Trade_Time = Current_Time;
+       }
+    }
+    
     if(!Order_Executed && Enable_Stop_Orders && !Spread_Too_High) {
-      ENUM_ORDER_TYPE Order_Type = (Signal.Direction == 1) ? ORDER_TYPE_BUY_STOP : ORDER_TYPE_SELL_STOP;
-      double Stop_Price = (Signal.Direction == 1) ? Signal.Entry_Price + Signal.ATR_Value * 0.2 : Signal.Entry_Price - Signal.ATR_Value * 0.2;
-      if(Execute_Pending_Order(Order_Type, Stop_Price, Lot_Size, Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit)) {
-         Order_Executed = true;
-         Execution_Type = "STOP";
-         Today_Trade_Count++;
-         Save_Daily_Trades();
-         Last_Trade_Time = Current_Time;
-      }
-   }
-   
-// Try Stop-Limit Order
+       ENUM_ORDER_TYPE Order_Type = (Signal.Direction == 1) ? ORDER_TYPE_BUY_STOP : ORDER_TYPE_SELL_STOP;
+       double Stop_Price = (Signal.Direction == 1) ? Signal.Entry_Price + Signal.ATR_Value * 0.2 : Signal.Entry_Price - Signal.ATR_Value * 0.2;
+       if(Execute_Pending_Order(Order_Type, Stop_Price, Signal.Entry_Price, Lot_Size, Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit)) {
+          Order_Executed = true;
+          Execution_Type = "STOP";
+          Today_Trade_Count++;
+          Save_Daily_Trades();
+          Last_Trade_Time = Current_Time;
+       }
+    }
+    
     if(!Order_Executed && Enable_StopLimit_Orders && !Spread_Too_High) {
-      ENUM_ORDER_TYPE Order_Type = (Signal.Direction == 1) ? ORDER_TYPE_BUY_STOP_LIMIT : ORDER_TYPE_SELL_STOP_LIMIT;
-      double Stop_Price = (Signal.Direction == 1) ? Signal.Entry_Price + Signal.ATR_Value * 0.3 : Signal.Entry_Price - Signal.ATR_Value * 0.3;
-      if(Execute_Pending_Order(Order_Type, Stop_Price, Lot_Size, Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit)) {
-         Order_Executed = true;
-         Execution_Type = "STOP_LIMIT";
-         Today_Trade_Count++;
-         Save_Daily_Trades();
-         Last_Trade_Time = Current_Time;
-      }
-   }
-   
-   if(Order_Executed) {
-      Print("=== Order Executed: ", Execution_Type);
-      Print("    Today's Trades: ", Today_Trade_Count, "/", Daily_Trade_Target);
-   }
+       ENUM_ORDER_TYPE Order_Type = (Signal.Direction == 1) ? ORDER_TYPE_BUY_STOP_LIMIT : ORDER_TYPE_SELL_STOP_LIMIT;
+       double Stop_Price = (Signal.Direction == 1) ? Signal.Entry_Price + Signal.ATR_Value * 0.3 : Signal.Entry_Price - Signal.ATR_Value * 0.3;
+       double Limit_Price = (Signal.Direction == 1) ? Signal.Entry_Price + Signal.ATR_Value * 0.10 : Signal.Entry_Price - Signal.ATR_Value * 0.10;
+       if(Execute_Pending_Order(Order_Type, Stop_Price, Limit_Price, Lot_Size, Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit)) {
+          Order_Executed = true;
+          Execution_Type = "STOP_LIMIT";
+          Today_Trade_Count++;
+          Save_Daily_Trades();
+          Last_Trade_Time = Current_Time;
+       }
+    }
+    
+    if(Order_Executed) {
+       Print("=== Order Executed: ", Execution_Type);
+       Print("    Today's Trades: ", Today_Trade_Count, "/", Daily_Trade_Target);
+    }
 }
+
+void OnTimer() {
+    MqlDateTime Current_Time_Struct, Day_Start_Time_Struct;
+    datetime Current_Time = TimeCurrent();
+    TimeToStruct(Current_Time, Current_Time_Struct);
+    TimeToStruct(Day_Start_Time, Day_Start_Time_Struct);
+    
+    if(Current_Time_Struct.day != Day_Start_Time_Struct.day) {
+       Today_Trade_Count = 0;
+       Day_Start_Time = Current_Time;
+       GlobalVariableSet(GlobalPrefix + _Symbol + "_Day", Current_Time_Struct.day);
+       GlobalVariableSet(GlobalPrefix + _Symbol + "_TradeCount", 0);
+    }
+}
+
 
 //+------------------------------------------------------------------+
 Trade_Signal Analyze_Market() {
@@ -297,25 +311,23 @@ Trade_Signal Analyze_Market() {
    if(CopyBuffer(Indicator_Handle_MA_High_Fast, 0, 0, 1, MA_Fast_Trend) <= 0) return Result;
    if(CopyBuffer(Indicator_Handle_MA_High_Slow, 0, 0, 1, MA_Slow_Trend) <= 0) return Result;
    
-   bool Uptrend = MA_Fast_Trend[0] > MA_Slow_Trend[0];
-   bool Downtrend = MA_Fast_Trend[0] < MA_Slow_Trend[0];
-   
-double Current_Price = iClose(_Symbol, Timeframe_Trend, 0);
-   Result.ATR_Value = Get_ATR_Value(Timeframe_Entry, 0);
+    bool Uptrend = MA_Fast_Trend[0] > MA_Slow_Trend[0];
+    bool Downtrend = MA_Fast_Trend[0] < MA_Slow_Trend[0];
+
+    Result.ATR_Value = Get_ATR_Value(Timeframe_Entry, 0);
    double Minimum_Stop = Get_Minimum_Stop_Distance();
    
    double Swing_Low_M15 = iLow(_Symbol, Timeframe_Entry, iLowest(_Symbol, Timeframe_Entry, MODE_LOW, 20, 1));
    double Swing_High_M15 = iHigh(_Symbol, Timeframe_Entry, iHighest(_Symbol, Timeframe_Entry, MODE_HIGH, 20, 1));
    
-   double ATR_Based_SL = Result.ATR_Value * 1.5;
-   
-   double Entry_Price = (Direction == 1) ? SymbolInfoDouble(_Symbol, SYMBOL_ASK) : SymbolInfoDouble(_Symbol, SYMBOL_BID);
-   
-  if(Uptrend) {
-       Result.Direction = 1;
-       Result.Entry_Price = Entry_Price;
-       
-       double Structural_SL = Swing_Low_M15 - Minimum_Stop;
+double ATR_Based_SL = Result.ATR_Value * SL_MULTIPLIER;
+
+if(Uptrend) {
+        Result.Direction = 1;
+        double Entry_Price = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+        Result.Entry_Price = Entry_Price;
+
+        double Structural_SL = Swing_Low_M15 - Minimum_Stop;
        double Volatility_SL = Entry_Price - ATR_Based_SL;
        
        if(Structural_SL > Volatility_SL) {
@@ -325,11 +337,12 @@ double Current_Price = iClose(_Symbol, Timeframe_Trend, 0);
        }
        Result.Stop_Loss = MathMax(Result.Stop_Loss, Entry_Price - Minimum_Stop * 2);
     }
-    else if(Downtrend) {
-       Result.Direction = -1;
-       Result.Entry_Price = Entry_Price;
-       
-       double Structural_SL = Swing_High_M15 + Minimum_Stop;
+else if(Downtrend) {
+        Result.Direction = -1;
+        double Entry_Price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+        Result.Entry_Price = Entry_Price;
+
+        double Structural_SL = Swing_High_M15 + Minimum_Stop;
        double Volatility_SL = Entry_Price + ATR_Based_SL;
        
        if(Structural_SL < Volatility_SL) {
@@ -355,23 +368,41 @@ double Current_Price = iClose(_Symbol, Timeframe_Trend, 0);
 }
 
 int Calculate_Confirmation(int Direction) {
-   int Score = 0;
-   if((Direction == 1 && Is_Bullish_Candle()) || (Direction == -1 && Is_Bearish_Candle())) Score++;
-   if(Is_Volume_Spike()) Score++;
-   if(Is_Momentum_Confirmed(Direction)) Score++;
-   if(Is_Liquidity_Swept(Direction)) Score++;
-   if(Is_Consolidation_Breakout(Direction)) Score++;
-   if(Is_Range_Expansion()) Score++;
-   if(Is_Fair_Value_Gap(Direction)) Score++;
-   if(Is_Multitimeframe_Aligned(Direction)) Score++;
-   return Score;
+    int Score = 0;
+
+    if(Is_Liquidity_Swept(Direction, LIQUIDITY_SWEEP_LOOKBACK)) Score++;
+    if(Is_Fair_Value_Gap(Direction, FVG_VALID_BARS)) Score++;
+    if(Is_Consolidation_Breakout(Direction, CONSOLIDATION_BREAK_LOOKBACK)) Score++;
+    if(Is_Multitimeframe_Aligned(Direction)) Score += MTF_ALIGNMENT_SCORE;
+
+    if((Direction == 1 && Is_Bullish_Candle()) || (Direction == -1 && Is_Bearish_Candle())) Score++;
+    if(Is_Volume_Spike_Recent(VOLUME_SPIKE_LOOKBACK)) Score++;
+    if(Is_Momentum_Confirmed_Loose(Direction)) Score++;
+    if(Is_Range_Expansion_Recent(RANGE_EXPANSION_LOOKBACK)) Score++;
+
+    if(Enable_Debug_Prints) {
+        Print("=== Signal Memory Debug ===");
+        Print("Liq Sweep (", LIQUIDITY_SWEEP_LOOKBACK, " bars): ", Is_Liquidity_Swept(Direction, LIQUIDITY_SWEEP_LOOKBACK),
+              " | FVG (", FVG_VALID_BARS, " bars): ", Is_Fair_Value_Gap(Direction, FVG_VALID_BARS),
+              " | Consolidation (", CONSOLIDATION_BREAK_LOOKBACK, " bars): ", Is_Consolidation_Breakout(Direction, CONSOLIDATION_BREAK_LOOKBACK),
+              " | MTF: ", Is_Multitimeframe_Aligned(Direction));
+        Print("Bullish Candle: ", (Direction==1?Is_Bullish_Candle():Is_Bearish_Candle()),
+              " | Volume (", VOLUME_SPIKE_LOOKBACK, " bars): ", Is_Volume_Spike_Recent(VOLUME_SPIKE_LOOKBACK),
+              " | Momentum: ", Is_Momentum_Confirmed_Loose(Direction),
+              " | Range Exp (", RANGE_EXPANSION_LOOKBACK, " bars): ", Is_Range_Expansion_Recent(RANGE_EXPANSION_LOOKBACK));
+        Print("Total Score: ", Score, " / ", Minimum_Confirmations, " required");
+    }
+
+    return Score;
 }
 
-double Calculate_Lot_Size(double Entry_Price, double Stop_Loss) {
-   double Account_Balance = AccountInfoDouble(ACCOUNT_BALANCE);
-   double Risk_Amount = Account_Balance * Risk_Percent / 100.0;
-   double Stop_Distance = MathAbs(Entry_Price - Stop_Loss);
-   if(Stop_Distance < Point_Value * 10) Stop_Distance = Indicator_Handle_ATR_Low * 0.4;
+double Calculate_Lot_Size(double Entry_Price, double Stop_Loss, double ATR) {
+    double Account_Balance = AccountInfoDouble(ACCOUNT_BALANCE);
+    double Risk_Amount = Account_Balance * Risk_Percent / 100.0;
+    double Stop_Distance = MathAbs(Entry_Price - Stop_Loss);
+    
+    double Min_Stop_Distance = ATR * 0.8;
+    if(Stop_Distance < Min_Stop_Distance) Stop_Distance = Min_Stop_Distance;
    
    double Tick_Value = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
    double Lot_Step = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
@@ -418,72 +449,128 @@ bool Is_Bearish_Candle() {
 }
 
 bool Is_Volume_Spike() {
-   double Volume_Current = (double)iVolume(_Symbol, Timeframe_Entry, 0);
-   double Volume_Sum = 0;
-   for(int i = 1; i <= 10; i++) Volume_Sum += (double)iVolume(_Symbol, Timeframe_Entry, i);
-   return Volume_Current > (Volume_Sum / 10.0) * 1.3;
+    double Volume_Current = (double)iVolume(_Symbol, Timeframe_Entry, 0);
+    double Volume_Sum = 0;
+    for(int i = 1; i <= 10; i++) Volume_Sum += (double)iVolume(_Symbol, Timeframe_Entry, i);
+    return Volume_Current > (Volume_Sum / 10.0) * 1.3;
 }
 
-bool Is_Momentum_Confirmed(int Direction) {
-   double RSI[], MACD_Main[], MACD_Signal[];
-   if(CopyBuffer(Indicator_Handle_RSI, 0, 0, 1, RSI) <= 0) return false;
-   if(CopyBuffer(Indicator_Handle_MACD, 0, 0, 1, MACD_Main) <= 0) return false;
-   if(CopyBuffer(Indicator_Handle_MACD, 1, 0, 1, MACD_Signal) <= 0) return false;
-   if(Direction == 1) return RSI[0] < RSI_Oversold && MACD_Main[0] > MACD_Signal[0];
-   if(Direction == -1) return RSI[0] > RSI_Overbought && MACD_Main[0] < MACD_Signal[0];
-   return false;
+bool Is_Volume_Spike_Recent(int lookback = 2) {
+    for(int bar = 0; bar <= lookback; bar++) {
+        double Volume_Current = (double)iVolume(_Symbol, Timeframe_Entry, bar);
+        double Volume_Sum = 0;
+        for(int i = bar+1; i <= bar+10; i++) Volume_Sum += (double)iVolume(_Symbol, Timeframe_Entry, i);
+        double Average = Volume_Sum / 10.0;
+        if(Volume_Current > Average * 1.3)
+            return true;
+    }
+    return false;
 }
 
-bool Is_Liquidity_Swept(int Direction) {
-   double Recent_High = iHigh(_Symbol, Timeframe_Entry, iHighest(_Symbol, Timeframe_Entry, MODE_HIGH, 10, 1));
-   double Recent_Low = iLow(_Symbol, Timeframe_Entry, iLowest(_Symbol, Timeframe_Entry, MODE_LOW, 10, 1));
-   double Sweep_Amount = (Recent_High - Recent_Low) * 0.05;
-   double High = iHigh(_Symbol, Timeframe_Entry, 0);
-   double Low = iLow(_Symbol, Timeframe_Entry, 0);
-   double Close = iClose(_Symbol, Timeframe_Entry, 0);
-   if(Direction == 1) return Low < Recent_Low - Sweep_Amount && Close > Recent_Low;
-   if(Direction == -1) return High > Recent_High + Sweep_Amount && Close < Recent_High;
-   return false;
+bool Is_Momentum_Confirmed_Loose(int Direction) {
+    double RSI[], MACD_Main[], MACD_Signal[];
+    if(CopyBuffer(Indicator_Handle_RSI, 0, 0, 1, RSI) <= 0) return false;
+    if(CopyBuffer(Indicator_Handle_MACD, 0, 0, 1, MACD_Main) <= 0) return false;
+    if(CopyBuffer(Indicator_Handle_MACD, 1, 0, 1, MACD_Signal) <= 0) return false;
+    if(Direction == 1) return (RSI[0] < RSI_ZONE_OVERSOLD) && (MACD_Main[0] > MACD_Signal[0]);
+    if(Direction == -1) return (RSI[0] > RSI_ZONE_OVERBOUGHT) && (MACD_Main[0] < MACD_Signal[0]);
+    return false;
 }
 
-bool Is_Consolidation_Breakout(int Direction) {
-   double High_20 = iHigh(_Symbol, Timeframe_Entry, iHighest(_Symbol, Timeframe_Entry, MODE_HIGH, 20, 0));
-   double Low_20 = iLow(_Symbol, Timeframe_Entry, iLowest(_Symbol, Timeframe_Entry, MODE_LOW, 20, 0));
-   double High_5 = iHigh(_Symbol, Timeframe_Entry, iHighest(_Symbol, Timeframe_Entry, MODE_HIGH, 5, 0));
-   double Low_5 = iLow(_Symbol, Timeframe_Entry, iLowest(_Symbol, Timeframe_Entry, MODE_LOW, 5, 0));
-   if(High_20 - Low_20 == 0) return false;
-   if((High_5 - Low_5) / (High_20 - Low_20) >= 0.25) return false;
-   double Close = iClose(_Symbol, Timeframe_Entry, 0);
-   if(Direction == 1 && Close > High_5) return true;
-   if(Direction == -1 && Close < Low_5) return true;
-   return false;
+bool Is_Range_Expansion_Recent(int lookback = 2) {
+    for(int bar = 0; bar <= lookback; bar++) {
+        double ATR_Current = Get_ATR_Value(Timeframe_Entry, bar);
+        double ATR_Previous = Get_ATR_Value(Timeframe_Entry, bar+1);
+        if(ATR_Previous > 0 && ATR_Current / ATR_Previous > 1.15)
+            return true;
+    }
+    return false;
 }
 
-bool Is_Range_Expansion() {
-   double ATR_Current = Get_ATR_Value(Timeframe_Entry, 0);
-   double ATR_Previous = Get_ATR_Value(Timeframe_Entry, 1);
-   return ATR_Previous > 0 && ATR_Current / ATR_Previous > 1.15;
+bool Is_Liquidity_Swept(int Direction, int lookback = 5) {
+    for(int bar = 0; bar <= lookback; bar++) {
+        double Recent_High = iHigh(_Symbol, Timeframe_Entry, iHighest(_Symbol, Timeframe_Entry, MODE_HIGH, 10, bar+1));
+        double Recent_Low = iLow(_Symbol, Timeframe_Entry, iLowest(_Symbol, Timeframe_Entry, MODE_LOW, 10, bar+1));
+        double Sweep_Amount = (Recent_High - Recent_Low) * 0.05;
+        double High = iHigh(_Symbol, Timeframe_Entry, bar);
+        double Low = iLow(_Symbol, Timeframe_Entry, bar);
+        double Close = iClose(_Symbol, Timeframe_Entry, bar);
+        if(Direction == 1 && Low < Recent_Low - Sweep_Amount && Close > Recent_Low) {
+            Last_Liquidity_Sweep_Bar = bar;
+            return true;
+        }
+        if(Direction == -1 && High > Recent_High + Sweep_Amount && Close < Recent_High) {
+            Last_Liquidity_Sweep_Bar = bar;
+            return true;
+        }
+    }
+    return false;
 }
 
-bool Is_Fair_Value_Gap(int Direction) {
-   double High_0 = iHigh(_Symbol, Timeframe_Entry, 0), Low_0 = iLow(_Symbol, Timeframe_Entry, 0);
-   double High_2 = iHigh(_Symbol, Timeframe_Entry, 2), Low_2 = iLow(_Symbol, Timeframe_Entry, 2);
-   if(Direction == 1 && Low_0 > High_2 && iClose(_Symbol, Timeframe_Entry, 1) < Low_0) return true;
-   if(Direction == -1 && High_0 < Low_2 && iClose(_Symbol, Timeframe_Entry, 1) > High_0) return true;
-   return false;
+bool Is_Consolidation_Breakout(int Direction, int lookback = 4) {
+    for(int bar = 0; bar <= lookback; bar++) {
+        double High_20 = iHigh(_Symbol, Timeframe_Entry, iHighest(_Symbol, Timeframe_Entry, MODE_HIGH, 20, bar));
+        double Low_20 = iLow(_Symbol, Timeframe_Entry, iLowest(_Symbol, Timeframe_Entry, MODE_LOW, 20, bar));
+        double High_5 = iHigh(_Symbol, Timeframe_Entry, iHighest(_Symbol, Timeframe_Entry, MODE_HIGH, 5, bar));
+        double Low_5 = iLow(_Symbol, Timeframe_Entry, iLowest(_Symbol, Timeframe_Entry, MODE_LOW, 5, bar));
+        if(High_20 - Low_20 == 0) continue;
+        if((High_5 - Low_5) / (High_20 - Low_20) >= 0.25) continue;
+        double Close = iClose(_Symbol, Timeframe_Entry, bar);
+        if(Direction == 1 && Close > High_5) {
+            Last_Consolidation_Break_Bar = bar;
+            return true;
+        }
+        if(Direction == -1 && Close < Low_5) {
+            Last_Consolidation_Break_Bar = bar;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool Is_Fair_Value_Gap(int Direction, int lookback = 5) {
+    for(int bar = 0; bar <= lookback; bar++) {
+        double High_0 = iHigh(_Symbol, Timeframe_Entry, bar);
+        double Low_0  = iLow(_Symbol, Timeframe_Entry, bar);
+        double High_2 = iHigh(_Symbol, Timeframe_Entry, bar+2);
+        double Low_2  = iLow(_Symbol, Timeframe_Entry, bar+2);
+        double Close_1 = iClose(_Symbol, Timeframe_Entry, bar+1);
+        if(Direction == 1 && Low_0 > High_2 && Close_1 < Low_0) {
+            Last_FVG_Bar = bar;
+            return true;
+        }
+        if(Direction == -1 && High_0 < Low_2 && Close_1 > High_0) {
+            Last_FVG_Bar = bar;
+            return true;
+        }
+    }
+    return false;
+}
+
+void Update_Multitimeframe_Alignment() {
+    double MA_Trend_Fast[], MA_Trend_Slow[], MA_Entry_Fast[], MA_Entry_Slow[];
+    if(CopyBuffer(Indicator_Handle_MA_High_Fast, 0, 0, 1, MA_Trend_Fast) <= 0) return;
+    if(CopyBuffer(Indicator_Handle_MA_High_Slow, 0, 0, 1, MA_Trend_Slow) <= 0) return;
+    if(CopyBuffer(Indicator_Handle_MA_Low_Fast, 0, 0, 1, MA_Entry_Fast) <= 0) return;
+    if(CopyBuffer(Indicator_Handle_MA_Low_Slow, 0, 0, 1, MA_Entry_Slow) <= 0) return;
+    bool Trend_Uptrend = MA_Trend_Fast[0] > MA_Trend_Slow[0];
+    bool Entry_Uptrend = MA_Entry_Fast[0] > MA_Entry_Slow[0];
+    if(Trend_Uptrend && Entry_Uptrend) {
+        Multitimeframe_Aligned_Bull = true;
+        Multitimeframe_Aligned_Bear = false;
+    } else if(!Trend_Uptrend && !Entry_Uptrend) {
+        Multitimeframe_Aligned_Bull = false;
+        Multitimeframe_Aligned_Bear = true;
+    } else {
+        Multitimeframe_Aligned_Bull = false;
+        Multitimeframe_Aligned_Bear = false;
+    }
 }
 
 bool Is_Multitimeframe_Aligned(int Direction) {
-   double MA_Trend_Fast[], MA_Trend_Slow[], MA_Entry_Fast[], MA_Entry_Slow[];
-   if(CopyBuffer(Indicator_Handle_MA_High_Fast, 0, 0, 1, MA_Trend_Fast) <= 0) return false;
-   if(CopyBuffer(Indicator_Handle_MA_High_Slow, 0, 0, 1, MA_Trend_Slow) <= 0) return false;
-   if(CopyBuffer(Indicator_Handle_MA_Low_Fast, 0, 0, 1, MA_Entry_Fast) <= 0) return false;
-   if(CopyBuffer(Indicator_Handle_MA_Low_Slow, 0, 0, 1, MA_Entry_Slow) <= 0) return false;
-   bool Trend_Uptrend = MA_Trend_Fast[0] > MA_Trend_Slow[0];
-   bool Entry_Uptrend = MA_Entry_Fast[0] > MA_Entry_Slow[0];
-   if(Direction == 1) return Trend_Uptrend && Entry_Uptrend;
-   if(Direction == -1) return !Trend_Uptrend && !Entry_Uptrend;
-   return false;
+    if(Direction == 1) return Multitimeframe_Aligned_Bull;
+    if(Direction == -1) return Multitimeframe_Aligned_Bear;
+    return false;
 }
 
 //+------------------------------------------------------------------+
@@ -535,7 +622,7 @@ bool Execute_Market_Order(int Direction, double Stop_Loss, double Take_Profit, d
    return false;
 }
 
-bool Execute_Pending_Order(ENUM_ORDER_TYPE Order_Type, double Price, double Lot_Size, int Direction, double Stop_Loss, double Take_Profit) {
+bool Execute_Pending_Order(ENUM_ORDER_TYPE Order_Type, double Price, double LimitPrice, double Lot_Size, int Direction, double Stop_Loss, double Take_Profit) {
    Price = NormalizeDouble(Price, (int)Digits_Value);
    double Minimum_Stop = Get_Minimum_Stop_Distance();
    double Ask_Price = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
@@ -548,10 +635,14 @@ bool Execute_Pending_Order(ENUM_ORDER_TYPE Order_Type, double Price, double Lot_
    MqlTradeRequest Request = {};
    MqlTradeResult Result = {};
    Request.action = TRADE_ACTION_PENDING;
-   Request.symbol = _Symbol;
-   Request.volume = Lot_Size;
-   Request.price = Price;
-   Request.sl = Stop_Loss;
+Request.symbol = _Symbol;
+    Request.volume = Lot_Size;
+    Request.price = Price;
+    if(Order_Type == ORDER_TYPE_BUY_STOP_LIMIT || Order_Type == ORDER_TYPE_SELL_STOP_LIMIT) {
+        Request.stoplimit = Price;
+        Request.price = LimitPrice;
+    }
+    Request.sl = Stop_Loss;
    Request.tp = Take_Profit;
    Request.deviation = Slippage_Points;
    Request.type_filling = Fill_Policy;
