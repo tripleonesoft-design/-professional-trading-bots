@@ -4,7 +4,7 @@
 //+------------------------------------------------------------------+
 #property copyright "Professional Trading System"
 #property version   "1.14"
-#property description "Crude Oil Optimized - Signal Memory / Lookback Windows - Max Spread 150, ATR 45, SL 1.5x"
+#property description "Crude Oil Optimized - Signal Memory / Lookback Windows - Max Spread 150, ATR 350, SL 1.5x"
 
 input group "=== Timeframes ==="
 input ENUM_TIMEFRAMES Timeframe_Trend  = PERIOD_H1;
@@ -21,14 +21,14 @@ input group "=== Risk Management (Exness Optimized - Research Based) ==="
 input double  Risk_Percent         = 2.0;
 input double  Reward_Risk_Ratio    = 3.0;
 input int     Maximum_Spread_Points = 150;
-input int     Slippage_Points      = 25;
+input int     Slippage_Points      = 100;
 input double  Maximum_Lot_Size     = 0.1;
 input double  Min_Lot_Size         = 0.01;
 
 input group "=== Trading Settings ==="
 input int     Daily_Trade_Target    = 6;
 input int     Minimum_Confirmations = 3;
-input double  ATR_Filter_Min       = 45.0;
+input double  ATR_Filter_Min       = 350.0;
 input int     Cooldown_Seconds       = 0;
 
 input group "=== Fill Policy ==="

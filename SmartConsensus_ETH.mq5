@@ -4,7 +4,7 @@
 //+------------------------------------------------------------------+
 #property copyright "Professional Trading System"
 #property version   "1.14"
-#property description "Ethereum Optimized - Signal Memory / Lookback Windows - Max Spread 800, ATR 250, SL 1.5x"
+#property description "Ethereum Optimized - Signal Memory / Lookback Windows - Max Spread 1200, ATR 1500, SL 1.5x"
 
 input group "=== Timeframes ==="
 input ENUM_TIMEFRAMES Timeframe_Trend  = PERIOD_H1;
@@ -20,15 +20,15 @@ input int     Pending_Order_Expiry_Seconds = 43200;
 input group "=== Risk Management (Exness Optimized - Research Based) ==="
 input double  Risk_Percent         = 2.0;
 input double  Reward_Risk_Ratio    = 3.0;
-input int     Maximum_Spread_Points = 800;
-input int     Slippage_Points      = 200;
+input int     Maximum_Spread_Points = 1200;
+input int     Slippage_Points      = 800;
 input double  Maximum_Lot_Size     = 0.1;
 input double  Min_Lot_Size         = 0.01;
 
 input group "=== Trading Settings ==="
 input int     Daily_Trade_Target    = 4;
 input int     Minimum_Confirmations = 3;
-input double  ATR_Filter_Min       = 250.0;
+input double  ATR_Filter_Min       = 1500.0;
 input int     Cooldown_Seconds       = 0;
 
 input group "=== Fill Policy ==="

@@ -4,7 +4,7 @@
 //+------------------------------------------------------------------+
 #property copyright "Professional Trading System"
 #property version   "1.14"
-#property description "Gold Optimized - Signal Memory / Lookback Windows - Max Spread 2500, ATR 150, SL 1.5x"
+#property description "Gold Optimized - Signal Memory / Lookback Windows - Max Spread 2500, ATR 3000, SL 1.5x"
 
 input group "=== Timeframes ==="
 input ENUM_TIMEFRAMES Timeframe_Trend  = PERIOD_H1;
@@ -21,14 +21,14 @@ input group "=== Risk Management (Exness Optimized - Research Based) ==="
 input double  Risk_Percent         = 2.0;
 input double  Reward_Risk_Ratio    = 3.0;
 input int     Maximum_Spread_Points = 2500;
-input int     Slippage_Points      = 40;
+input int     Slippage_Points      = 1500;
 input double  Maximum_Lot_Size     = 0.05;
 input double  Min_Lot_Size         = 0.01;
 
 input group "=== Trading Settings ==="
 input int     Daily_Trade_Target    = 6;
 input int     Minimum_Confirmations = 3;
-input double  ATR_Filter_Min       = 150.0;
+input double  ATR_Filter_Min       = 3000.0;
 input int     Cooldown_Seconds       = 0;
 
 input group "=== Fill Policy ==="
