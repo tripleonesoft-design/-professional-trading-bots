@@ -3,6 +3,8 @@
 //|                             Bitcoin (BTCUSD) Optimized v1.0           |
 //+------------------------------------------------------------------+
 #property copyright "Professional Trading System"
+#property version   "1.14"
+#property description "Bitcoin Optimized - Signal Memory / Lookback Windows - Max Spread 3000, ATR 1000, SL 1.5x"
 
 input group "=== Timeframes ==="
 input ENUM_TIMEFRAMES Timeframe_Trend  = PERIOD_H1;      // Higher Timeframe: 1 Hour (Trend)
@@ -66,6 +68,16 @@ const double CONSOLIDATION_RATIO = 0.25;
 const int ORDER_RETRY_COUNT = 3;
 const int REJECT_ERROR_CODE = 10019;
 const double REWARD_RATIO_TOLERANCE = 0.8;
+//+------------------------------------------------------------------+
+// Signal Memory / Lookback Windows
+const int LIQUIDITY_SWEEP_LOOKBACK     = 6;
+const int FVG_VALID_BARS               = 8;
+const int VOLUME_SPIKE_LOOKBACK        = 3;
+const int RANGE_EXPANSION_LOOKBACK     = 3;
+const int CONSOLIDATION_BREAK_LOOKBACK = 5;
+const int RSI_ZONE_OVERSOLD            = 40;
+const int RSI_ZONE_OVERBOUGHT          = 55;
+const int MTF_ALIGNMENT_SCORE         = 2;
 
 //+------------------------------------------------------------------+
 double   Point_Value, Digits_Value;
@@ -91,6 +103,13 @@ struct Trade_Signal {
    double ATR_Value;
 };
 Trade_Signal Signal;
+
+int    Last_Liquidity_Sweep_Bar = -1;
+int    Last_FVG_Bar = -1;
+int    Last_Consolidation_Break_Bar = -1;
+bool   Multitimeframe_Aligned_Bull = false;
+bool   Multitimeframe_Aligned_Bear = false;
+
 
 void Initialize_Daily_Trades() {
     string GV_Day = GlobalPrefix + _Symbol + "_Day";
@@ -199,12 +218,48 @@ void OnDeinit(const int reason) {
 void OnTick() {
     static datetime Last_Settings_Check = 0;
     datetime Current_Time = TimeCurrent();
+    
+    if(Current_Time - Last_Settings_Check >= 1) {
+       Last_Settings_Check = Current_Time;
+       
+       MqlDateTime ct, ds;
+       TimeToStruct(Current_Time, ct);
+       TimeToStruct(Day_Start_Time, ds);
+       
+       if(ct.day != ds.day) {
+          Today_Trade_Count = 0;
+          Day_Start_Time = Current_Time;
+          GlobalVariableSet(GlobalPrefix + _Symbol + "_Day", ct.day);
+          GlobalVariableSet(GlobalPrefix + _Symbol + "_TradeCount", 0);
+       }
+    }
+    
+    if(Enable_Trailing_Stop) Manage_Trailing_Stops();
+    
+    if(!Trading_Enabled) return;
+    if(Today_Trade_Count >= Daily_Trade_Target) return;
+    if(Cooldown_Seconds > 0 && Current_Time - Last_Trade_Time < Cooldown_Seconds) return;
+    
+    datetime Current_Bar = iTime(_Symbol, Timeframe_Entry, 0);
+    if(Current_Bar == Last_Analyzed_Bar) return;
+    Last_Analyzed_Bar = Current_Bar;
+    Update_Multitimeframe_Alignment();
+    
     double Current_Spread = (SymbolInfoDouble(_Symbol, SYMBOL_ASK) - SymbolInfoDouble(_Symbol, SYMBOL_BID)) / Point_Value;
     bool Spread_Too_High = (Current_Spread > Maximum_Spread_Points);
     if(Spread_Too_High) {
        if(Enable_Debug_Prints) Print("Spread Too High - Skipping order execution");
        return;
     }
+    
+    Signal = Analyze_Market();
+    if(Signal.Direction == 0) return;
+    
+    int Confirmation_Score = Calculate_Confirmation(Signal.Direction);
+    if(Confirmation_Score < Minimum_Confirmations) return;
+    
+    if(Signal.ATR_Value < ATR_Filter_Min * Point_Value) return;
+    
     Print("=== Signal Detected: ", Signal.Direction==1?"BUY":"SELL");
     Print("    Confirmation Score: ", Confirmation_Score, "/", Minimum_Confirmations);
     Print("    Entry: ", DoubleToString(Signal.Entry_Price, (int)Digits_Value));
@@ -215,6 +270,12 @@ void OnTick() {
     double Actual_Ratio = Reward_Distance / Risk_Distance;
     Print("    Risk/Reward: 1:", DoubleToString(Actual_Ratio, 2), " (Target: 1:", Reward_Risk_Ratio, ")");
     Print("    ATR: ", DoubleToString(Signal.ATR_Value/Point_Value, 1), " points");
+    
+    double Lot_Size = Calculate_Lot_Size(Signal.Entry_Price, Signal.Stop_Loss, Signal.ATR_Value);
+    if(Lot_Size < SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN)) return;
+    
+    bool Order_Executed = false;
+    
     if(Allow_Multiple_Entries_Per_Signal) {
        if(Enable_Market_Orders) {
           if(Execute_Market_Order(Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit, Lot_Size)) {
@@ -291,6 +352,7 @@ void OnTick() {
           }
        }
     }
+    
     Print("=== Signal processing complete. Today's Trades: ", Today_Trade_Count, "/", Daily_Trade_Target);
 }
 
@@ -299,6 +361,12 @@ void OnTimer() {
     datetime Current_Time = TimeCurrent();
     TimeToStruct(Current_Time, Current_Time_Struct);
     TimeToStruct(Day_Start_Time, Day_Start_Time_Struct);
+    
+    if(Current_Time_Struct.day != Day_Start_Time_Struct.day) {
+       Today_Trade_Count = 0;
+       Day_Start_Time = Current_Time;
+       GlobalVariableSet(GlobalPrefix + _Symbol + "_Day", Current_Time_Struct.day);
+       GlobalVariableSet(GlobalPrefix + _Symbol + "_TradeCount", 0);
     }
 }
 
@@ -474,6 +542,17 @@ bool Is_Volume_Spike() {
     for(int i = 1; i <= 10; i++) Volume_Sum += (double)iVolume(_Symbol, Timeframe_Entry, i);
     return Volume_Current > (Volume_Sum / 10.0) * VOLUME_SPIKE_RATIO;
 }
+bool Is_Volume_Spike_Recent(int lookback = 2) {
+    for(int bar = 0; bar <= lookback; bar++) {
+        double Volume_Current = (double)iVolume(_Symbol, Timeframe_Entry, bar);
+        double Volume_Sum = 0;
+        for(int i = bar+1; i <= bar+10; i++) Volume_Sum += (double)iVolume(_Symbol, Timeframe_Entry, i);
+        double Average = Volume_Sum / 10.0;
+        if(Volume_Current > Average * VOLUME_SPIKE_RATIO)
+            return true;
+    }
+    return false;
+}
 
 
 
@@ -487,6 +566,61 @@ bool Is_Momentum_Confirmed_Loose(int Direction) {
     return false;
 }
 
+
+
+bool Is_Liquidity_Swept(int Direction, int lookback = 5) {
+    for(int bar = 0; bar <= lookback; bar++) {
+        double Recent_High = iHigh(_Symbol, Timeframe_Entry, iHighest(_Symbol, Timeframe_Entry, MODE_HIGH, 10, bar+1));
+        double Recent_Low = iLow(_Symbol, Timeframe_Entry, iLowest(_Symbol, Timeframe_Entry, MODE_LOW, 10, bar+1));
+        double Sweep_Amount = (Recent_High - Recent_Low) * LIQUIDITY_SWEEP_PCT;
+        double High = iHigh(_Symbol, Timeframe_Entry, bar);
+        double Low = iLow(_Symbol, Timeframe_Entry, bar);
+        double Close = iClose(_Symbol, Timeframe_Entry, bar);
+        if(Direction == 1 && Low < Recent_Low - Sweep_Amount && Close > Recent_Low) {
+            Last_Liquidity_Sweep_Bar = bar;
+            return true;
+        }
+        if(Direction == -1 && High > Recent_High + Sweep_Amount && Close < Recent_High) {
+            Last_Liquidity_Sweep_Bar = bar;
+            return true;
+        }
+    }
+    return false;
+}
+
+
+
+bool Is_Consolidation_Breakout(int Direction, int lookback = 4) {
+    for(int bar = 0; bar <= lookback; bar++) {
+        double High_20 = iHigh(_Symbol, Timeframe_Entry, iHighest(_Symbol, Timeframe_Entry, MODE_HIGH, 20, bar));
+        double Low_20 = iLow(_Symbol, Timeframe_Entry, iLowest(_Symbol, Timeframe_Entry, MODE_LOW, 20, bar));
+        double High_5 = iHigh(_Symbol, Timeframe_Entry, iHighest(_Symbol, Timeframe_Entry, MODE_HIGH, 5, bar));
+        double Low_5 = iLow(_Symbol, Timeframe_Entry, iLowest(_Symbol, Timeframe_Entry, MODE_LOW, 5, bar));
+        if(High_20 - Low_20 == 0) continue;
+        if((High_5 - Low_5) / (High_20 - Low_20) >= CONSOLIDATION_RATIO) continue;
+        double Close = iClose(_Symbol, Timeframe_Entry, bar);
+        if(Direction == 1 && Close > High_5) {
+            Last_Consolidation_Break_Bar = bar;
+            return true;
+        }
+        if(Direction == -1 && Close < Low_5) {
+            Last_Consolidation_Break_Bar = bar;
+            return true;
+        }
+    }
+    return false;
+}
+
+
+
+bool Is_Range_Expansion_Recent(int lookback = 2) {
+    for(int bar = 0; bar <= lookback; bar++) {
+        double ATR_Current = Get_ATR_Value(Timeframe_Entry, bar);
+        double ATR_Previous = Get_ATR_Value(Timeframe_Entry, bar+1);
+        if(ATR_Previous > 0 && ATR_Current / ATR_Previous > RANGE_EXPANSION_RATIO)
+            return true;
+    }
+    return false;
 }
 
 
@@ -537,6 +671,8 @@ bool Is_Multitimeframe_Aligned(int Direction) {
     if(Direction == -1) return Multitimeframe_Aligned_Bear;
     return false;
 }
+
+
 
 //+------------------------------------------------------------------+
 bool Execute_Market_Order(int Direction, double Stop_Loss, double Take_Profit, double Lot_Size) {
