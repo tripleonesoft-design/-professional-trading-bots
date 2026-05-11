@@ -19,7 +19,7 @@ input int     Pending_Order_Expiry_Seconds = 43200;    // Pending Order Expiry: 
 
 input group "=== Risk Management ==="
 input double  Risk_Percent       = 1.0;
-input double  SL_MULTIPLIER     = 1.0;        // SL Multiplier: ATR-based stop loss multiplier
+input double  SL_MULTIPLIER     = 1.5;        // SL Multiplier: ATR-based stop loss multiplier
 input double  Reward_Risk_Ratio = 3.0;
 input int     Maximum_Spread_Points = 300;
 input int     Slippage_Points    = 200;

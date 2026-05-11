@@ -20,7 +20,7 @@ input int     Pending_Order_Expiry_Seconds = 43200;
 input group "=== Risk Management (Exness Optimized - Research Based) ==="
 input double  Risk_Percent         = 2.0;
 input double  Reward_Risk_Ratio    = 3.0;
-input int     Maximum_Spread_Points = 40;
+input int     Maximum_Spread_Points = 150;
 input int     Slippage_Points      = 25;
 input double  Maximum_Lot_Size     = 0.1;
 input double  Min_Lot_Size         = 0.01;
@@ -48,7 +48,7 @@ input int MACD_Slow_Period  = 26;
 input int MACD_Signal_Period = 9;
 input int ATR_Period        = 14;
 
-const double SL_MULTIPLIER = 1.2;
+const double SL_MULTIPLIER = 1.5;
 
 const int LIQUIDITY_SWEEP_LOOKBACK     = 4;
 const int FVG_VALID_BARS               = 5;

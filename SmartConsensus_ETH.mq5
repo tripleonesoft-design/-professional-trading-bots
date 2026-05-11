@@ -48,7 +48,7 @@ input int MACD_Slow_Period  = 26;
 input int MACD_Signal_Period = 9;
 input int ATR_Period        = 14;
 
-const double SL_MULTIPLIER = 0.8;
+const double SL_MULTIPLIER = 1.5;
 
 const int LIQUIDITY_SWEEP_LOOKBACK     = 5;
 const int FVG_VALID_BARS               = 6;
