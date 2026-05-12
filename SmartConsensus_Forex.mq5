@@ -56,9 +56,23 @@ input group "=== Trading Control ==="
 input bool Enable_Trading_Enabled = true;
 
 input group "=== Named Constants ==="
-
 const double SL_MULTIPLIER = 1.5;
+const double MIN_SL_MULTIPLIER = 1.5;
+const double MAX_STOP_BROKER_MULTIPLIER = 2.0;
+const double STOP_PRICE_ATR_MULTIPLIER = 0.3;
+const double LIMIT_PRICE_ATR_OFFSET = 0.1;
+const double PINBAR_BODY_RATIO = 0.35;
+const double PINBAR_WICK_RATIO = 1.5;
+const double LIQUIDITY_SWEEP_PCT = 0.05;
+const double VOLUME_SPIKE_RATIO = 1.3;
+const double RANGE_EXPANSION_RATIO = 1.15;
+const double CONSOLIDATION_RATIO = 0.25;
+const int ORDER_RETRY_COUNT = 3;
+const int REJECT_ERROR_CODE = 10019;
+const double REWARD_RATIO_TOLERANCE = 0.8;
 
+//+------------------------------------------------------------------+
+// Signal Memory / Lookback Windows
 const int LIQUIDITY_SWEEP_LOOKBACK     = 3;
 const int FVG_VALID_BARS               = 4;
 const int VOLUME_SPIKE_LOOKBACK        = 2;

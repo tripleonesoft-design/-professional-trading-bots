@@ -20,7 +20,6 @@ input int     Pending_Order_Expiry_Seconds = 43200;    // Pending Order Expiry: 
 
 input group "=== Risk Management ==="
 input double  Risk_Percent       = 1.0;
-input double  SL_MULTIPLIER     = 1.5;        // SL Multiplier: ATR-based stop loss multiplier
 input double  Reward_Risk_Ratio = 3.0;
 input int     Maximum_Spread_Points = 300;
 input int     Slippage_Points    = 200;
@@ -49,20 +48,39 @@ input int MACD_Slow_Period = 26;
 input int MACD_Signal_Period = 9;
 input int ATR_Period     = 14;
 
-input group "=== Signal Memory / Lookback Windows ==="
-input int STRUCTURAL_LOOKBACK          = 5;     // Structural events valid for N bars
-input int FVG_VALID_BARS               = 5;     // FVG/OB valid within N bars
-input int VOLUME_SPIKE_LOOKBACK        = 2;     // Volume spike lookback bars
-input int RANGE_EXPANSION_LOOKBACK     = 2;     // Range expansion lookback bars
-input int LIQUIDITY_SWEEP_LOOKBACK     = 5;     // Liquidity sweep lookback bars
-input int CONSOLIDATION_BREAK_LOOKBACK = 4;     // Consolidation break lookback bars
-input int MTF_ALIGNMENT_SCORE         = 1;     // MTF alignment contribution (1-2)
-input int RSI_ZONE_OVERSOLD            = 35;    // RSI zone for buy
-input int RSI_ZONE_OVERBOUGHT          = 65;    // RSI zone for sell
-input bool Enable_Debug_Prints        = false;   // Debug print for signal breakdown
+input group "=== Debug Settings ==="
+input bool Enable_Debug_Prints = false;
 
 input group "=== Trading Control ==="
 input bool Enable_Trading_Enabled = true;
+
+//+------------------------------------------------------------------+
+// Named Constants for Magic Numbers
+const double SL_MULTIPLIER = 1.5;
+const double MIN_SL_MULTIPLIER = 1.5;
+const double MAX_STOP_BROKER_MULTIPLIER = 2.0;
+const double STOP_PRICE_ATR_MULTIPLIER = 0.3;
+const double LIMIT_PRICE_ATR_OFFSET = 0.1;
+const double PINBAR_BODY_RATIO = 0.35;
+const double PINBAR_WICK_RATIO = 1.5;
+const double LIQUIDITY_SWEEP_PCT = 0.05;
+const double VOLUME_SPIKE_RATIO = 1.3;
+const double RANGE_EXPANSION_RATIO = 1.15;
+const double CONSOLIDATION_RATIO = 0.25;
+const int ORDER_RETRY_COUNT = 3;
+const int REJECT_ERROR_CODE = 10019;
+const double REWARD_RATIO_TOLERANCE = 0.8;
+
+//+------------------------------------------------------------------+
+// Signal Memory / Lookback Windows
+const int LIQUIDITY_SWEEP_LOOKBACK     = 5;
+const int FVG_VALID_BARS               = 5;
+const int VOLUME_SPIKE_LOOKBACK        = 2;
+const int RANGE_EXPANSION_LOOKBACK     = 2;
+const int CONSOLIDATION_BREAK_LOOKBACK = 4;
+const int MTF_ALIGNMENT_SCORE         = 1;
+const int RSI_ZONE_OVERSOLD            = 35;
+const int RSI_ZONE_OVERBOUGHT          = 65;
 
 //+------------------------------------------------------------------+
 double   Point_Value, Digits_Value;
