@@ -15,6 +15,7 @@ input bool    Enable_Market_Orders     = true;
 input bool    Enable_Limit_Orders      = true;
 input bool    Enable_Stop_Orders       = true;
 input bool    Enable_StopLimit_Orders = true;
+input bool    Allow_Multiple_Entries_Per_Signal = false; // If false, only one order executes per signal
 input int     Pending_Order_Expiry_Seconds = 43200;
 
 input group "=== Risk Management (Exness Optimized - Research Based) ==="

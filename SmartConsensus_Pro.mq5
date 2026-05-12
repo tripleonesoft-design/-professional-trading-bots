@@ -15,6 +15,7 @@ input bool    Enable_Market_Orders      = true;       // Market Orders: Buy/Sell
 input bool    Enable_Limit_Orders     = true;       // Limit Orders: Buy Limit/Sell Limit
 input bool    Enable_Stop_Orders        = true;       // Stop Orders: Buy Stop/Sell Stop
 input bool    Enable_StopLimit_Orders = true;       // Stop-Limit Orders: Buy Stop Limit/Sell Stop Limit
+input bool    Allow_Multiple_Entries_Per_Signal = false; // If false, only one order executes per signal
 input int     Pending_Order_Expiry_Seconds = 43200;    // Pending Order Expiry: 12 Hours (43200 seconds)
 
 input group "=== Risk Management ==="
