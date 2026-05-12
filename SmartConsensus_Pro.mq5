@@ -58,7 +58,10 @@ input int CONSOLIDATION_BREAK_LOOKBACK = 4;     // Consolidation break lookback 
 input int MTF_ALIGNMENT_SCORE         = 1;     // MTF alignment contribution (1-2)
 input int RSI_ZONE_OVERSOLD            = 35;    // RSI zone for buy
 input int RSI_ZONE_OVERBOUGHT          = 65;    // RSI zone for sell
-input bool Enable_Debug_Prints        = true;   // Debug print for signal breakdown
+input bool Enable_Debug_Prints        = false;   // Debug print for signal breakdown
+
+input group "=== Trading Control ==="
+input bool Enable_Trading_Enabled = true;
 
 //+------------------------------------------------------------------+
 double   Point_Value, Digits_Value;
@@ -72,7 +75,7 @@ datetime Day_Start_Time = 0;
 int      Today_Trade_Count = 0;
 string   GlobalPrefix = "SmartConsensus_";
 const int Magic_Number = 20251201;
-bool     Trading_Enabled = true;
+bool     Trading_Enabled = Enable_Trading_Enabled;
 
 int    Last_Liquidity_Sweep_Bar = -1;
 int    Last_FVG_Bar = -1;

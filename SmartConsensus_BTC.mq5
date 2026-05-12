@@ -52,6 +52,9 @@ input int ATR_Period     = 14;
 input group "=== Debug Settings ==="
 input bool Enable_Debug_Prints = false;
 
+input group "=== Trading Control ==="
+input bool Enable_Trading_Enabled = true;
+
 //+------------------------------------------------------------------+
 // Named Constants for Magic Numbers
 const double SL_MULTIPLIER = 1.5;
@@ -91,7 +94,7 @@ datetime Day_Start_Time = 0;
 int      Today_Trade_Count = 0;
 string   GlobalPrefix = "SmartBTC_";
 const int Magic_Number = 20251204;
-bool     Trading_Enabled = true;
+bool     Trading_Enabled = Enable_Trading_Enabled;
 
 struct Trade_Signal {
    int    Direction;           // 1 = Buy, -1 = Sell

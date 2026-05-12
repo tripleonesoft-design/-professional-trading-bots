@@ -48,6 +48,14 @@ input int MACD_Slow_Period  = 26;
 input int MACD_Signal_Period = 9;
 input int ATR_Period        = 14;
 
+input group "=== Debug Settings ==="
+input bool Enable_Debug_Prints = false;
+
+input group "=== Trading Control ==="
+input bool Enable_Trading_Enabled = true;
+
+input group "=== Named Constants ==="
+
 const double SL_MULTIPLIER = 1.5;
 
 const int LIQUIDITY_SWEEP_LOOKBACK     = 4;
@@ -71,7 +79,7 @@ datetime Day_Start_Time = 0;
 int      Today_Trade_Count = 0;
 string   GlobalPrefix = "SmartOil_";
 const int Magic_Number = 20251206;
-bool     Trading_Enabled = true;
+bool     Trading_Enabled = Enable_Trading_Enabled;
 
 int    Last_Liquidity_Sweep_Bar = -1;
 int    Last_FVG_Bar = -1;
