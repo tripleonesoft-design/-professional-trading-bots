@@ -316,10 +316,6 @@ void OnTick() {
     
     Print("=== Signal processing complete. Today's Trades: ", Today_Trade_Count, "/", Daily_Trade_Target);
 }
-       Print("    Today's Trades: ", Today_Trade_Count, "/", Daily_Trade_Target);
-    }
-}
-
 
 void OnTimer() {
     MqlDateTime Current_Time_Struct, Day_Start_Time_Struct;
