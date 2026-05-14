@@ -109,6 +109,8 @@ struct Trade_Signal {
    double Stop_Loss;
    double Take_Profit;
    double ATR_Value;
+   double Swing_Low;
+   double Swing_High;
 };
 
 void Initialize_Daily_Trades() {
@@ -261,15 +263,25 @@ double Lot_Size = Calculate_Lot_Size(Signal.Entry_Price, Signal.Stop_Loss, Signa
               Last_Trade_Time = Current_Time;
            }
         }
-        if(Enable_Limit_Orders) {
-           ENUM_ORDER_TYPE Order_Type = (Signal.Direction == 1) ? ORDER_TYPE_BUY_LIMIT : ORDER_TYPE_SELL_LIMIT;
-           if(Execute_Pending_Order(Order_Type, Signal.Limit_Price, 0, Lot_Size, Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit)) {
-              Print("=== Limit order placed");
-              Today_Trade_Count++;
-              Save_Daily_Trades();
-              Last_Trade_Time = Current_Time;
-           }
-        }
+         if(Enable_Limit_Orders) {
+            double limitPrice;
+            if(Signal.Direction == 1) {
+               limitPrice = Signal.Swing_Low;
+               double maxLimit = SymbolInfoDouble(_Symbol, SYMBOL_ASK) - Get_Minimum_Stop_Distance();
+               if(limitPrice > maxLimit) limitPrice = maxLimit;
+            } else {
+               limitPrice = Signal.Swing_High;
+               double minLimit = SymbolInfoDouble(_Symbol, SYMBOL_BID) + Get_Minimum_Stop_Distance();
+               if(limitPrice < minLimit) limitPrice = minLimit;
+            }
+            ENUM_ORDER_TYPE Order_Type = (Signal.Direction == 1) ? ORDER_TYPE_BUY_LIMIT : ORDER_TYPE_SELL_LIMIT;
+            if(Execute_Pending_Order(Order_Type, limitPrice, 0, Lot_Size, Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit)) {
+               Print("=== Limit order placed at structural level");
+               Today_Trade_Count++;
+               Save_Daily_Trades();
+               Last_Trade_Time = Current_Time;
+            }
+         }
         if(Enable_Stop_Orders) {
            ENUM_ORDER_TYPE Order_Type = (Signal.Direction == 1) ? ORDER_TYPE_BUY_STOP : ORDER_TYPE_SELL_STOP;
            if(Execute_Pending_Order(Order_Type, Signal.Stop_Price, 0, Lot_Size, Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit)) {
@@ -298,16 +310,26 @@ double Lot_Size = Calculate_Lot_Size(Signal.Entry_Price, Signal.Stop_Loss, Signa
               Order_Executed = true;
            }
         }
-        if(!Order_Executed && Enable_Limit_Orders) {
-           ENUM_ORDER_TYPE Order_Type = (Signal.Direction == 1) ? ORDER_TYPE_BUY_LIMIT : ORDER_TYPE_SELL_LIMIT;
-           if(Execute_Pending_Order(Order_Type, Signal.Limit_Price, 0, Lot_Size, Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit)) {
-              Print("=== Limit order placed");
-              Today_Trade_Count++;
-              Save_Daily_Trades();
-              Last_Trade_Time = Current_Time;
-              Order_Executed = true;
-           }
-        }
+         if(!Order_Executed && Enable_Limit_Orders) {
+            double limitPrice;
+            if(Signal.Direction == 1) {
+               limitPrice = Signal.Swing_Low;
+               double maxLimit = SymbolInfoDouble(_Symbol, SYMBOL_ASK) - Get_Minimum_Stop_Distance();
+               if(limitPrice > maxLimit) limitPrice = maxLimit;
+            } else {
+               limitPrice = Signal.Swing_High;
+               double minLimit = SymbolInfoDouble(_Symbol, SYMBOL_BID) + Get_Minimum_Stop_Distance();
+               if(limitPrice < minLimit) limitPrice = minLimit;
+            }
+            ENUM_ORDER_TYPE Order_Type = (Signal.Direction == 1) ? ORDER_TYPE_BUY_LIMIT : ORDER_TYPE_SELL_LIMIT;
+            if(Execute_Pending_Order(Order_Type, limitPrice, 0, Lot_Size, Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit)) {
+               Print("=== Limit order placed at structural level");
+               Today_Trade_Count++;
+               Save_Daily_Trades();
+               Last_Trade_Time = Current_Time;
+               Order_Executed = true;
+            }
+         }
         if(!Order_Executed && Enable_Stop_Orders) {
            ENUM_ORDER_TYPE Order_Type = (Signal.Direction == 1) ? ORDER_TYPE_BUY_STOP : ORDER_TYPE_SELL_STOP;
            if(Execute_Pending_Order(Order_Type, Signal.Stop_Price, 0, Lot_Size, Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit)) {
@@ -364,7 +386,10 @@ Trade_Signal Analyze_Market() {
    
    double Swing_Low_M15 = iLow(_Symbol, Timeframe_Entry, iLowest(_Symbol, Timeframe_Entry, MODE_LOW, 20, 1));
    double Swing_High_M15 = iHigh(_Symbol, Timeframe_Entry, iHighest(_Symbol, Timeframe_Entry, MODE_HIGH, 20, 1));
-   
+
+   Result.Swing_Low  = Swing_Low_M15;
+   Result.Swing_High = Swing_High_M15;
+
    double ATR_Based_SL = Result.ATR_Value * SL_MULTIPLIER;
    double Minimum_SL_Distance = Result.ATR_Value * 0.8;
    
