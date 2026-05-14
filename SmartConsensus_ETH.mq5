@@ -273,8 +273,15 @@ const int RSI_ZONE_OVERBOUGHT         = 58;
                double minLimit = SymbolInfoDouble(_Symbol, SYMBOL_BID) + Get_Minimum_Stop_Distance();
                if(limitPrice < minLimit) limitPrice = minLimit;
             }
+            double ATR = Get_ATR_Value(Timeframe_Entry, 0);
+            double minStopDist = ATR * MIN_SL_MULTIPLIER;
+            double limitStopLoss;
+            if(Signal.Direction == 1)
+               limitStopLoss = limitPrice - minStopDist;
+            else
+               limitStopLoss = limitPrice + minStopDist;
             ENUM_ORDER_TYPE Order_Type = (Signal.Direction == 1) ? ORDER_TYPE_BUY_LIMIT : ORDER_TYPE_SELL_LIMIT;
-            if(Execute_Pending_Order(Order_Type, limitPrice, 0, Lot_Size, Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit)) {
+            if(Execute_Pending_Order(Order_Type, limitPrice, 0, Lot_Size, Signal.Direction, limitStopLoss, Signal.Take_Profit)) {
                Print("=== Limit order placed at structural level");
                Today_Trade_Count++;
                Save_Daily_Trades();
@@ -320,8 +327,15 @@ const int RSI_ZONE_OVERBOUGHT         = 58;
                double minLimit = SymbolInfoDouble(_Symbol, SYMBOL_BID) + Get_Minimum_Stop_Distance();
                if(limitPrice < minLimit) limitPrice = minLimit;
             }
+            double ATR = Get_ATR_Value(Timeframe_Entry, 0);
+            double minStopDist = ATR * MIN_SL_MULTIPLIER;
+            double limitStopLoss;
+            if(Signal.Direction == 1)
+               limitStopLoss = limitPrice - minStopDist;
+            else
+               limitStopLoss = limitPrice + minStopDist;
             ENUM_ORDER_TYPE Order_Type = (Signal.Direction == 1) ? ORDER_TYPE_BUY_LIMIT : ORDER_TYPE_SELL_LIMIT;
-            if(Execute_Pending_Order(Order_Type, limitPrice, 0, Lot_Size, Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit)) {
+            if(Execute_Pending_Order(Order_Type, limitPrice, 0, Lot_Size, Signal.Direction, limitStopLoss, Signal.Take_Profit)) {
                Print("=== Limit order placed at structural level");
                Today_Trade_Count++;
                Save_Daily_Trades();

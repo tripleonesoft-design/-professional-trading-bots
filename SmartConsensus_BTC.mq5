@@ -290,25 +290,32 @@ void OnTick() {
              Last_Trade_Time = Current_Time;
           }
        }
-        if(Enable_Limit_Orders) {
-           double limitPrice;
-           if(Signal.Direction == 1) {
-              limitPrice = Signal.Swing_Low;
-              double maxLimit = SymbolInfoDouble(_Symbol, SYMBOL_ASK) - Get_Minimum_Stop_Distance();
-              if(limitPrice > maxLimit) limitPrice = maxLimit;
-           } else {
-              limitPrice = Signal.Swing_High;
-              double minLimit = SymbolInfoDouble(_Symbol, SYMBOL_BID) + Get_Minimum_Stop_Distance();
-              if(limitPrice < minLimit) limitPrice = minLimit;
-           }
-           ENUM_ORDER_TYPE Order_Type = (Signal.Direction == 1) ? ORDER_TYPE_BUY_LIMIT : ORDER_TYPE_SELL_LIMIT;
-           if(Execute_Pending_Order(Order_Type, limitPrice, 0, Lot_Size, Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit)) {
-              Print("=== Limit order placed at structural level");
-              Today_Trade_Count++;
-              Save_Daily_Trades();
-              Last_Trade_Time = Current_Time;
-           }
-        }
+if(Enable_Limit_Orders) {
+            double limitPrice;
+            if(Signal.Direction == 1) {
+               limitPrice = Signal.Swing_Low;
+               double maxLimit = SymbolInfoDouble(_Symbol, SYMBOL_ASK) - Get_Minimum_Stop_Distance();
+               if(limitPrice > maxLimit) limitPrice = maxLimit;
+            } else {
+               limitPrice = Signal.Swing_High;
+               double minLimit = SymbolInfoDouble(_Symbol, SYMBOL_BID) + Get_Minimum_Stop_Distance();
+               if(limitPrice < minLimit) limitPrice = minLimit;
+            }
+            double ATR = Get_ATR_Value(Timeframe_Entry, 0);
+            double minStopDist = ATR * MIN_SL_MULTIPLIER;
+            double limitStopLoss;
+            if(Signal.Direction == 1)
+               limitStopLoss = limitPrice - minStopDist;
+            else
+               limitStopLoss = limitPrice + minStopDist;
+            ENUM_ORDER_TYPE Order_Type = (Signal.Direction == 1) ? ORDER_TYPE_BUY_LIMIT : ORDER_TYPE_SELL_LIMIT;
+            if(Execute_Pending_Order(Order_Type, limitPrice, 0, Lot_Size, Signal.Direction, limitStopLoss, Signal.Take_Profit)) {
+               Print("=== Limit order placed at structural level");
+               Today_Trade_Count++;
+               Save_Daily_Trades();
+               Last_Trade_Time = Current_Time;
+            }
+         }
        if(Enable_Stop_Orders) {
           ENUM_ORDER_TYPE Order_Type = (Signal.Direction == 1) ? ORDER_TYPE_BUY_STOP : ORDER_TYPE_SELL_STOP;
           if(Execute_Pending_Order(Order_Type, Signal.Stop_Price, 0, Lot_Size, Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit)) {
@@ -337,28 +344,35 @@ void OnTick() {
              Order_Executed = true;
           }
        }
-        if(!Order_Executed && Enable_Limit_Orders) {
-           double limitPrice;
-           if(Signal.Direction == 1) {
-              limitPrice = Signal.Swing_Low;                          // use recent support
-              double maxLimit = SymbolInfoDouble(_Symbol, SYMBOL_ASK) - Get_Minimum_Stop_Distance();
-              if(limitPrice > maxLimit)                               // fallback if swing is too high
-                 limitPrice = maxLimit;
-           } else {
-              limitPrice = Signal.Swing_High;                         // use recent resistance
-              double minLimit = SymbolInfoDouble(_Symbol, SYMBOL_BID) + Get_Minimum_Stop_Distance();
-              if(limitPrice < minLimit)                               // fallback if swing is too low
-                 limitPrice = minLimit;
-           }
-           ENUM_ORDER_TYPE Order_Type = (Signal.Direction == 1) ? ORDER_TYPE_BUY_LIMIT : ORDER_TYPE_SELL_LIMIT;
-           if(Execute_Pending_Order(Order_Type, limitPrice, 0, Lot_Size, Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit)) {
-              Print("=== Limit order placed at structural level");
-              Today_Trade_Count++;
-              Save_Daily_Trades();
-              Last_Trade_Time = Current_Time;
-              Order_Executed = true;
-           }
-        }
+if(!Order_Executed && Enable_Limit_Orders) {
+            double limitPrice;
+            if(Signal.Direction == 1) {
+               limitPrice = Signal.Swing_Low;                          // use recent support
+               double maxLimit = SymbolInfoDouble(_Symbol, SYMBOL_ASK) - Get_Minimum_Stop_Distance();
+               if(limitPrice > maxLimit)                               // fallback if swing is too high
+                  limitPrice = maxLimit;
+            } else {
+               limitPrice = Signal.Swing_High;                         // use recent resistance
+               double minLimit = SymbolInfoDouble(_Symbol, SYMBOL_BID) + Get_Minimum_Stop_Distance();
+               if(limitPrice < minLimit)                               // fallback if swing is too low
+                  limitPrice = minLimit;
+            }
+            double ATR = Get_ATR_Value(Timeframe_Entry, 0);
+            double minStopDist = ATR * MIN_SL_MULTIPLIER;
+            double limitStopLoss;
+            if(Signal.Direction == 1)
+               limitStopLoss = limitPrice - minStopDist;
+            else
+               limitStopLoss = limitPrice + minStopDist;
+            ENUM_ORDER_TYPE Order_Type = (Signal.Direction == 1) ? ORDER_TYPE_BUY_LIMIT : ORDER_TYPE_SELL_LIMIT;
+            if(Execute_Pending_Order(Order_Type, limitPrice, 0, Lot_Size, Signal.Direction, limitStopLoss, Signal.Take_Profit)) {
+               Print("=== Limit order placed at structural level");
+               Today_Trade_Count++;
+               Save_Daily_Trades();
+               Last_Trade_Time = Current_Time;
+               Order_Executed = true;
+            }
+         }
        if(!Order_Executed && Enable_Stop_Orders) {
           ENUM_ORDER_TYPE Order_Type = (Signal.Direction == 1) ? ORDER_TYPE_BUY_STOP : ORDER_TYPE_SELL_STOP;
           if(Execute_Pending_Order(Order_Type, Signal.Stop_Price, 0, Lot_Size, Signal.Direction, Signal.Stop_Loss, Signal.Take_Profit)) {
